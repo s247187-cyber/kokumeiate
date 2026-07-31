@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>世界国当てマップクイズ (World Geography Quiz)</title>
+    <title>世界国当てマップクイズ Deluxe (World Geography Quiz)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- D3.js and TopoJSON CDN -->
@@ -13,47 +13,68 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    
+    <!-- Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
 
         body {
             font-family: 'Zen Maru Gothic', 'Plus Jakarta Sans', sans-serif;
-            background-color: #0f172a;
+            background-color: #0b0f19;
             color: #f8fafc;
             overflow-x: hidden;
         }
 
         /* SVG Map Styling */
         .country {
-            fill: #334155;
-            stroke: #1e293b;
+            fill: #1e293b;
+            stroke: #334155;
             stroke-width: 0.6px;
-            transition: fill 0.2s ease, stroke 0.2s ease;
+            transition: fill 0.25s ease, stroke 0.25s ease;
             cursor: pointer;
         }
 
         .country:hover {
-            fill: #475569;
+            fill: #3b82f6;
+            stroke: #60a5fa;
+            stroke-width: 1px;
         }
 
-        /* Highlight target country */
+        /* Highlight target country in Quiz Mode 1 */
         .country.target {
             fill: #ef4444 !important;
             stroke: #fca5a5 !important;
             stroke-width: 1.5px;
-            animation: pulse-red 1.8s infinite ease-in-out;
+            animation: pulse-red 1.6s infinite ease-in-out;
         }
 
         @keyframes pulse-red {
-            0% { fill: #ef4444; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.8)); }
-            50% { fill: #dc2626; filter: drop-shadow(0 0 10px rgba(239, 68, 68, 1)); }
-            100% { fill: #ef4444; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.8)); }
+            0% { fill: #ef4444; filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.8)); }
+            50% { fill: #b91c1c; filter: drop-shadow(0 0 12px rgba(239, 68, 68, 1)); }
+            100% { fill: #ef4444; filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.8)); }
         }
 
         .country.correct-flash {
             fill: #10b981 !important;
             stroke: #6ee7b7 !important;
+            animation: flash-green 0.8s ease-out;
+        }
+
+        @keyframes flash-green {
+            0% { fill: #34d399; filter: drop-shadow(0 0 15px rgba(52, 211, 153, 1)); }
+            100% { fill: #10b981; }
+        }
+
+        .country.wrong-flash {
+            fill: #f43f5e !important;
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-3px); }
+            40%, 80% { transform: translateX(3px); }
         }
 
         ::-webkit-scrollbar {
@@ -61,64 +82,90 @@
             height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #1e293b;
+            background: #0f172a;
         }
         ::-webkit-scrollbar-thumb {
-            background: #475569;
+            background: #334155;
             border-radius: 3px;
         }
 
         .glass-panel {
-            background: rgba(30, 41, 59, 0.75);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-panel-glow {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .theater-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 99999 !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
         }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between select-none">
 
-    <header class="w-full glass-panel sticky top-0 z-30 px-4 py-3 border-b border-slate-700/50">
+    <header class="w-full glass-panel sticky top-0 z-30 px-4 py-3 border-b border-slate-800">
         <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <div class="bg-gradient-to-tr from-indigo-500 to-rose-500 p-2.5 rounded-xl shadow-lg shadow-indigo-500/30">
+                <div class="bg-gradient-to-tr from-indigo-500 via-purple-500 to-rose-500 p-2.5 rounded-xl shadow-lg shadow-indigo-500/30">
                     <i class="fa-solid fa-earth-americas text-2xl text-white"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-wide bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                        WORLD MAP QUIZ
+                    <h1 class="text-xl font-black tracking-wider bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
+                        WORLD MAP QUIZ <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 font-bold ml-1">DELUXE</span>
                     </h1>
-                    <p class="text-xs text-slate-400">赤く染まった国名を当てよう！</p>
+                    <p id="header-subtitle" class="text-xs text-slate-400">マップ上の赤く塗られた国名を当てよう！</p>
                 </div>
             </div>
 
             <!-- Stats Bar -->
-            <div class="flex items-center gap-4 bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700/60">
+            <div class="flex items-center gap-3 sm:gap-4 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-800 shadow-inner">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-trophy text-amber-400"></i>
-                    <span class="text-xs text-slate-400">スコア:</span>
-                    <span id="score-display" class="font-extrabold text-amber-400 text-lg">0</span>
+                    <span class="text-xs text-slate-400 hidden sm:inline">スコア:</span>
+                    <span id="score-display" class="font-black text-amber-400 text-lg">0</span>
                 </div>
-                <div class="h-4 w-px bg-slate-700"></div>
+                <div class="h-4 w-px bg-slate-800"></div>
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-fire text-rose-500"></i>
-                    <span class="text-xs text-slate-400">連続:</span>
-                    <span id="streak-display" class="font-extrabold text-rose-400 text-lg">0</span>
+                    <span class="text-xs text-slate-400 hidden sm:inline">コンボ:</span>
+                    <span id="streak-display" class="font-black text-rose-400 text-lg">0</span>
                 </div>
-                <div id="timer-container" class="hidden flex items-center gap-2 pl-2 border-l border-slate-700">
+                <div id="timer-container" class="hidden flex items-center gap-2 pl-2 border-l border-slate-800">
                     <i class="fa-solid fa-stopwatch text-cyan-400"></i>
-                    <span id="timer-display" class="font-extrabold text-cyan-300 text-lg">60s</span>
+                    <span id="timer-display" class="font-black text-cyan-300 text-lg">60s</span>
                 </div>
             </div>
 
             <!-- Header Controls -->
             <div class="flex items-center gap-2">
-                <button id="mode-explore-btn" onclick="toggleExploreMode()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 hover:bg-slate-600 transition flex items-center gap-1.5 border border-slate-600">
-                    <i class="fa-solid fa-compass text-emerald-400"></i> <span id="explore-btn-text">図鑑・探索モード</span>
+                <button id="fullscreen-btn" onclick="toggleFullscreen()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition text-slate-300 border border-slate-700" title="大画面 / 全画面切り替え (F)">
+                    <i id="fullscreen-icon" class="fa-solid fa-expand text-indigo-400"></i>
+                </button>
+                <button id="sound-btn" onclick="toggleSound()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition text-slate-300 border border-slate-700" title="サウンド切り替え">
+                    <i id="sound-icon" class="fa-solid fa-volume-high text-indigo-400"></i>
+                </button>
+                <button id="mode-explore-btn" onclick="toggleExploreMode()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 transition flex items-center gap-1.5 border border-slate-700 text-slate-200">
+                    <i class="fa-solid fa-compass text-emerald-400"></i> <span id="explore-btn-text">図鑑モード</span>
                 </button>
                 <button onclick="openAiChatModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 transition text-white flex items-center gap-1.5 shadow-md shadow-indigo-500/20 border border-purple-400/30">
-                    <i class="fa-solid fa-robot text-cyan-300 animate-pulse"></i> AIに質問
+                    <i class="fa-solid fa-robot text-cyan-300 animate-pulse"></i> AIガイド
                 </button>
-                <button onclick="openSettingsModal()" class="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition text-slate-300 border border-slate-600" title="設定">
+                <button onclick="openSettingsModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition text-slate-300 border border-slate-700" title="設定">
                     <i class="fa-solid fa-sliders"></i>
                 </button>
             </div>
@@ -128,43 +175,46 @@
     <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col lg:flex-row gap-5 items-stretch">
         
         <!-- Interactive Map Panel -->
-        <div class="flex-1 glass-panel rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[380px] lg:min-h-[520px] shadow-2xl border border-slate-800">
+        <div class="flex-1 glass-panel-glow rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[400px] lg:min-h-[540px] border border-slate-800/80">
             
-            <!-- Zoom Controls -->
+            <!-- Map Overlay Quick Info / Controls -->
             <div class="absolute top-4 left-4 z-10 flex flex-col gap-2">
-                <button onclick="zoomIn()" class="w-9 h-9 glass-panel rounded-lg flex items-center justify-center hover:bg-slate-700/80 transition text-slate-200 shadow-md">
+                <button onclick="zoomIn()" class="w-9 h-9 glass-panel rounded-lg flex items-center justify-center hover:bg-slate-700/80 transition text-slate-200 shadow-md border border-slate-700/50" title="拡大">
                     <i class="fa-solid fa-plus"></i>
                 </button>
-                <button onclick="zoomOut()" class="w-9 h-9 glass-panel rounded-lg flex items-center justify-center hover:bg-slate-700/80 transition text-slate-200 shadow-md">
+                <button onclick="zoomOut()" class="w-9 h-9 glass-panel rounded-lg flex items-center justify-center hover:bg-slate-700/80 transition text-slate-200 shadow-md border border-slate-700/50" title="縮小">
                     <i class="fa-solid fa-minus"></i>
                 </button>
-                <button onclick="resetZoom()" class="w-9 h-9 glass-panel rounded-lg flex items-center justify-center hover:bg-slate-700/80 transition text-slate-200 shadow-md" title="ズームリセット">
+                <button onclick="resetZoom()" class="w-9 h-9 glass-panel rounded-lg flex items-center justify-center hover:bg-slate-700/80 transition text-slate-200 shadow-md border border-slate-700/50" title="ズームリセット">
                     <i class="fa-solid fa-rotate"></i>
+                </button>
+                <button onclick="toggleFullscreen()" class="w-9 h-9 glass-panel rounded-lg flex items-center justify-center hover:bg-slate-700/80 transition text-slate-200 shadow-md border border-slate-700/50" title="全画面表示 (F)">
+                    <i class="fa-solid fa-expand text-indigo-300"></i>
                 </button>
             </div>
 
             <!-- Target Center Focus Helper -->
             <div class="absolute top-4 right-4 z-10">
-                <button onclick="centerOnTarget()" id="focus-btn" class="px-3 py-1.5 glass-panel hover:bg-rose-500/20 text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-rose-500/30 shadow-lg">
-                    <i class="fa-solid fa-location-crosshairs text-rose-400 animate-spin"></i> 国の位置へ移動
+                <button onclick="centerOnTarget()" id="focus-btn" class="px-3 py-1.5 glass-panel hover:bg-rose-500/20 text-rose-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition border border-rose-500/30 shadow-lg">
+                    <i class="fa-solid fa-location-crosshairs text-rose-400"></i> 国の位置へフォーカス
                 </button>
             </div>
 
-            <!-- Loading Spinner -->
-            <div id="map-loading" class="absolute inset-0 z-20 bg-slate-900/95 flex flex-col items-center justify-center gap-3 backdrop-blur-md">
+            <!-- Loading Spinner Overlay -->
+            <div id="map-loading" class="absolute inset-0 z-20 bg-slate-950/90 flex flex-col items-center justify-center gap-3 backdrop-blur-md">
                 <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                <p class="text-sm font-semibold text-slate-300">世界地図データを読み込み中...</p>
+                <p class="text-sm font-bold text-slate-300">高品質世界地図データをロード中...</p>
             </div>
 
             <!-- Map SVG Container -->
-            <div id="map-container" class="w-full h-full min-h-[360px] lg:min-h-[500px] cursor-grab active:cursor-grabbing">
+            <div id="map-container" class="w-full h-full min-h-[380px] lg:min-h-[500px] cursor-grab active:cursor-grabbing">
                 <svg id="world-map" class="w-full h-full"></svg>
             </div>
 
             <!-- Map Footer Notice -->
-            <div class="px-4 py-2 bg-slate-900/60 border-t border-slate-800 text-[11px] text-slate-400 flex justify-between items-center">
-                <span><i class="fa-solid fa-hand-pointer mr-1"></i> ドラッグで移動 / ホイールで拡大縮小</span>
-                <span id="region-badge" class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-slate-300">地域: 全世界</span>
+            <div class="px-4 py-2 bg-slate-950/70 border-t border-slate-800/80 text-[11px] text-slate-400 flex justify-between items-center">
+                <span><i class="fa-solid fa-hand-pointer mr-1"></i> ドラッグ移動 / ホイール拡大縮小 / クリック判定</span>
+                <span id="region-badge" class="bg-slate-800/90 px-2.5 py-0.5 rounded-full border border-slate-700 text-slate-300 font-semibold">地域: 全世界</span>
             </div>
         </div>
 
@@ -174,54 +224,68 @@
             <div class="glass-panel p-5 rounded-2xl flex flex-col gap-4 shadow-xl border border-slate-800">
                 
                 <div class="flex items-center justify-between">
-                    <span id="question-number" class="text-xs font-extrabold uppercase tracking-widest text-indigo-400 bg-indigo-950/60 px-2.5 py-1 rounded-md border border-indigo-800/50">
+                    <span id="question-number" class="text-xs font-black uppercase tracking-widest text-indigo-400 bg-indigo-950/80 px-3 py-1 rounded-lg border border-indigo-800/50">
                         第 1 問
                     </span>
-                    <span id="difficulty-badge" class="text-xs px-2.5 py-1 rounded-md font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-800/50">
+                    <span id="answer-mode-indicator" class="text-[11px] font-bold text-cyan-300 bg-cyan-950/80 px-2.5 py-1 rounded-lg border border-cyan-800/50">
+                        <i class="fa-solid fa-keyboard mr-1"></i> 国名入力モード
+                    </span>
+                    <span id="difficulty-badge" class="text-xs px-2.5 py-1 rounded-lg font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">
                         中級
                     </span>
                 </div>
 
-                <!-- Input Box Form -->
+                <!-- MODE 1: Input Form -->
                 <form id="quiz-form" onsubmit="handleAnswerSubmit(event)" class="flex flex-col gap-3">
-                    <label for="country-input" class="text-sm text-slate-300 font-semibold flex items-center gap-1.5">
-                        <i class="fa-solid fa-flag text-rose-400"></i> この国の名前は？
+                    <label id="input-label" for="country-input" class="text-sm text-slate-200 font-bold flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-flag text-rose-400"></i> この赤く染まった国名は？</span>
                     </label>
                     
+                    <!-- Search Input with Datalist Autocomplete -->
                     <div class="relative">
-                        <input type="text" id="country-input" autocomplete="off" placeholder="国名を日本語で入力..." 
-                            class="w-full bg-slate-900/90 border-2 border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 rounded-xl px-4 py-3 text-white font-bold text-lg placeholder-slate-500 outline-none transition shadow-inner">
-                        <button type="submit" class="absolute right-2 top-2 bottom-2 px-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold rounded-lg transition shadow-md flex items-center justify-center">
+                        <input type="text" id="country-input" list="country-suggestions" autocomplete="off" placeholder="国名を日本語で入力 (例: 日本, フランス)..." 
+                            class="w-full bg-slate-950 border-2 border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 rounded-xl px-4 py-3 text-white font-bold text-base placeholder-slate-500 outline-none transition shadow-inner">
+                        <datalist id="country-suggestions"></datalist>
+
+                        <button type="submit" id="submit-btn" class="absolute right-2 top-2 bottom-2 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold rounded-lg transition shadow-md flex items-center justify-center">
                             <i class="fa-solid fa-paper-plane"></i>
                         </button>
                     </div>
                 </form>
+
+                <!-- MODE 2: Click Map Instruction Box -->
+                <div id="click-mode-box" class="hidden p-4 rounded-xl bg-indigo-950/50 border border-indigo-500/40 flex flex-col gap-2 items-center text-center">
+                    <div class="text-xs text-indigo-300 font-bold uppercase tracking-wider">指定の国をマップ上で探してクリック！</div>
+                    <div id="target-country-prompt" class="text-2xl font-black text-amber-300 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700 w-full shadow-md">
+                        ？？？
+                    </div>
+                </div>
 
                 <!-- Feedback Message -->
                 <div id="feedback-box" class="hidden p-3 rounded-xl text-center text-sm font-bold animate-bounce"></div>
 
                 <!-- Action Buttons -->
                 <div class="grid grid-cols-3 gap-2 pt-1">
-                    <button type="button" onclick="showHint()" class="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs font-bold transition flex items-center justify-center gap-1">
-                        <i class="fa-solid fa-lightbulb"></i> 定番ヒント
+                    <button type="button" onclick="showHint()" class="py-2.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs font-bold transition flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-lightbulb"></i> ヒント [H]
                     </button>
-                    <button type="button" onclick="showAiHint()" class="py-2 px-2.5 rounded-xl bg-indigo-900/60 hover:bg-indigo-800/80 border border-indigo-500/40 text-indigo-200 text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm">
-                        <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> AIヒント
+                    <button type="button" onclick="showAiHint()" class="py-2.5 px-2 rounded-xl bg-indigo-950 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-200 text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-wand-magic-sparkles text-cyan-300"></i> AIヒント
                     </button>
-                    <button type="button" onclick="skipCountry()" class="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1">
+                    <button type="button" onclick="skipCountry()" class="py-2.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1">
                         <i class="fa-solid fa-forward"></i> パス
                     </button>
                 </div>
 
                 <!-- Standard Hint Box -->
-                <div id="hint-container" class="hidden bg-slate-900/80 p-3 rounded-xl border border-amber-500/30 text-xs text-amber-200/90 space-y-1">
-                    <div id="hint-continent" class="flex items-center gap-2"><i class="fa-solid fa-globe text-amber-400"></i> <span>大陸: -</span></div>
+                <div id="hint-container" class="hidden bg-slate-950/80 p-3 rounded-xl border border-amber-500/30 text-xs text-amber-200 space-y-1.5">
+                    <div id="hint-continent" class="flex items-center gap-2"><i class="fa-solid fa-globe text-amber-400"></i> <span>所属大陸: -</span></div>
                     <div id="hint-capital" class="flex items-center gap-2"><i class="fa-solid fa-city text-amber-400"></i> <span>首都: -</span></div>
                     <div id="hint-length" class="flex items-center gap-2"><i class="fa-solid fa-font text-amber-400"></i> <span>文字数: -</span></div>
                 </div>
 
                 <!-- AI Creative Hint Box -->
-                <div id="ai-hint-container" class="hidden bg-purple-950/50 p-3 rounded-xl border border-purple-500/40 text-xs text-purple-200 space-y-2">
+                <div id="ai-hint-container" class="hidden bg-purple-950/60 p-3 rounded-xl border border-purple-500/40 text-xs text-purple-200 space-y-2">
                     <div class="flex items-center justify-between font-bold text-purple-300">
                         <span><i class="fa-solid fa-robot text-cyan-400"></i> AIなぞなぞヒント</span>
                     </div>
@@ -230,34 +294,37 @@
 
             </div>
 
-            <!-- Quiz Log & Geo Features Card -->
-            <div class="glass-panel p-4 rounded-2xl flex-1 flex flex-col justify-between shadow-xl border border-slate-800 min-h-[180px]">
+            <!-- Quiz Log & Geographic Features Card -->
+            <div class="glass-panel p-4 rounded-2xl flex-1 flex flex-col justify-between shadow-xl border border-slate-800 min-h-[200px]">
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-clock-rotate-left"></i> 回答履歴・地理的特徴
+                        <i class="fa-solid fa-clock-rotate-left"></i> 回答履歴・地理的解説
                     </h3>
                 </div>
 
                 <!-- 地理的特徴表示カード -->
-                <div id="geo-features-card" class="hidden mb-3 p-3 bg-emerald-950/40 rounded-xl border border-emerald-500/30 text-xs space-y-2">
+                <div id="geo-features-card" class="hidden mb-3 p-3.5 bg-emerald-950/40 rounded-xl border border-emerald-500/30 text-xs space-y-2.5">
                     <div class="flex items-center justify-between font-bold text-emerald-300">
-                        <span><i class="fa-solid fa-mountain-sun text-emerald-400"></i> <span id="geo-card-title">地理的特徴</span></span>
+                        <span class="flex items-center gap-2">
+                            <span id="geo-card-flag" class="text-xl">🏳️</span>
+                            <span id="geo-card-title">地理的特徴</span>
+                        </span>
                         <button onclick="openEditGeoModal()" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[11px] font-semibold border border-slate-600 transition flex items-center gap-1 shadow-sm">
                             <i class="fa-solid fa-pen-to-square text-amber-400"></i> 編集
                         </button>
                     </div>
-                    <p id="geo-features-body" class="text-slate-300 leading-relaxed"></p>
+                    <p id="geo-features-body" class="text-slate-200 leading-relaxed"></p>
                     
                     <!-- 次の問題へ進むボタン -->
-                <div class="pt-2 border-t border-emerald-800/50 flex justify-end">
-                    <button id="next-question-btn" onclick="nextQuestion()" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold rounded-xl shadow-md transition flex items-center gap-2 text-xs">
-                        次の問題へ進む <span class="text-[10px] bg-emerald-800/60 px-1.5 py-0.5 rounded border border-emerald-400/40 font-mono">Enter ↵</span> <i class="fa-solid fa-circle-arrow-right"></i>
-                    </button>
+                    <div class="pt-2 border-t border-emerald-800/50 flex justify-end">
+                        <button id="next-question-btn" onclick="nextQuestion()" class="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-xs">
+                            次の問題へ進む <span class="text-[10px] bg-emerald-900/80 px-1.5 py-0.5 rounded border border-emerald-400/40 font-mono">Enter ↵</span> <i class="fa-solid fa-circle-arrow-right"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <div id="history-list" class="flex-1 overflow-y-auto max-h-40 space-y-2 pr-1 text-xs">
-                    <p class="text-slate-500 italic text-center py-4">ゲームを開始するとここに履歴が表示されます</p>
+                <div id="history-list" class="flex-1 overflow-y-auto max-h-44 space-y-2 pr-1 text-xs">
+                    <p class="text-slate-500 italic text-center py-4">正解またはスキップすると、ここに国のデータが表示されます</p>
                 </div>
             </div>
 
@@ -265,11 +332,11 @@
     </main>
 
     <!-- 地理的特徴 編集モーダル -->
-    <div id="edit-geo-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div id="edit-geo-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-5 shadow-2xl relative space-y-4">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
                 <h2 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-pen-to-square text-amber-400"></i> 地理的特徴の編集
+                    <i class="fa-solid fa-pen-to-square text-amber-400"></i> 地理的特徴・解説の編集
                 </h2>
                 <button onclick="closeEditGeoModal()" class="text-slate-400 hover:text-white text-lg">
                     <i class="fa-solid fa-xmark"></i>
@@ -283,13 +350,13 @@
             <div class="space-y-1.5">
                 <div class="flex justify-between items-center">
                     <label for="edit-geo-textarea" class="text-xs font-semibold text-slate-300">
-                        地理的特徴（地形・気候・山脈・海など）
+                        地理的特徴（地形・気候・名所・文化など）
                     </label>
-                    <button type="button" onclick="generateGeoFeaturesWithAi()" class="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 bg-indigo-950/60 border border-indigo-800 px-2 py-0.5 rounded-md">
-                        <i class="fa-solid fa-wand-magic-sparkles text-cyan-300"></i> AIで自動作成
+                    <button type="button" onclick="generateGeoFeaturesWithAi()" class="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 bg-indigo-950 border border-indigo-800 px-2 py-0.5 rounded-md">
+                        <i class="fa-solid fa-wand-magic-sparkles text-cyan-300"></i> テンプレート補完
                     </button>
                 </div>
-                <textarea id="edit-geo-textarea" rows="4" placeholder="例: ユーラシア大陸の東に位置する弧状列島。山地が多く、火山や地震活動が活発..."
+                <textarea id="edit-geo-textarea" rows="4" placeholder="例: ユーラシア大陸東沖に位置する弧状列島。山地が多く豊かな自然を持つ..."
                     class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:border-indigo-500 outline-none resize-none"></textarea>
             </div>
 
@@ -305,7 +372,7 @@
     </div>
 
     <!-- AI Chat Modal -->
-    <div id="ai-chat-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div id="ai-chat-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl p-5 shadow-2xl relative space-y-4 flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
                 <h2 class="text-base font-bold text-white flex items-center gap-2">
@@ -316,19 +383,20 @@
                 </button>
             </div>
 
-            <div class="text-xs text-slate-400 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 flex items-center justify-between">
+            <div class="text-xs text-slate-300 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700 flex items-center justify-between">
                 <div>対象国: <span id="ai-chat-target-country" class="font-bold text-indigo-300">未選択</span></div>
             </div>
 
-            <div id="ai-chat-messages" class="flex-1 overflow-y-auto space-y-3 p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs min-h-[220px]">
-                <div class="p-3 bg-slate-800/60 rounded-xl border border-slate-700 text-slate-300 leading-relaxed">
-                    👋 こんにちは！問題の国について、有名な観光地や食べ物、気候について質問してください！
+            <div id="ai-chat-messages" class="flex-1 overflow-y-auto space-y-3 p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs min-h-[220px]">
+                <div class="p-3 bg-slate-800/80 rounded-xl border border-slate-700 text-slate-200 leading-relaxed">
+                    👋 こんにちは！現在の問題の国について、有名な観光地、伝統料理、歴史、気候など何でも聞いてください！
                 </div>
             </div>
 
             <div class="flex gap-1.5 overflow-x-auto pb-1 text-[11px]">
-                <button onclick="sendQuickQuestion('有名なおいしい料理は？')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg whitespace-nowrap border border-slate-700">🍔 有名な料理</button>
+                <button onclick="sendQuickQuestion('有名な名物料理は？')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg whitespace-nowrap border border-slate-700">🍔 名物料理</button>
                 <button onclick="sendQuickQuestion('代表的な観光スポットは？')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg whitespace-nowrap border border-slate-700">🏛️ 観光スポット</button>
+                <button onclick="sendQuickQuestion('気候や自然の特徴は？')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg whitespace-nowrap border border-slate-700">🌲 気候と自然</button>
             </div>
 
             <form onsubmit="handleAiChatSubmit(event)" class="flex gap-2">
@@ -342,7 +410,7 @@
     </div>
 
     <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl relative space-y-5">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
                 <h2 class="text-base font-bold text-white flex items-center gap-2">
@@ -353,9 +421,22 @@
                 </button>
             </div>
 
+            <!-- Quiz Type Selection -->
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-300 uppercase tracking-wider block">回答形式</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="quiztype-input" onclick="setQuizType('input')" class="quiztype-btn p-2.5 rounded-xl border border-indigo-500 bg-indigo-500/20 text-indigo-300 text-xs font-bold transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-keyboard"></i> 国名テキスト入力
+                    </button>
+                    <button id="quiztype-click" onclick="setQuizType('click')" class="quiztype-btn p-2.5 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 text-xs font-bold transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-pointer"></i> 位置あて (マップ判定)
+                    </button>
+                </div>
+            </div>
+
             <!-- Game Mode Selection -->
             <div class="space-y-2">
-                <label class="text-xs font-bold text-slate-300 uppercase tracking-wider block">ゲームモード</label>
+                <label class="text-xs font-bold text-slate-300 uppercase tracking-wider block">ルールモード</label>
                 <div class="grid grid-cols-3 gap-2">
                     <button id="mode-standard" onclick="setGameMode('standard')" class="mode-btn p-2.5 rounded-xl border border-indigo-500 bg-indigo-500/20 text-indigo-300 text-xs font-bold transition flex flex-col items-center gap-1 text-center">
                         <i class="fa-solid fa-infinity text-base"></i>
@@ -376,9 +457,9 @@
             <div class="space-y-1.5">
                 <label for="difficulty-select" class="text-xs font-bold text-slate-300 uppercase tracking-wider block">難易度</label>
                 <select id="difficulty-select" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-xl p-2.5 outline-none focus:border-indigo-500">
-                    <option value="easy">初級 (メジャーな国中心)</option>
+                    <option value="easy">初級 (主要大国・有名国のみ)</option>
                     <option value="medium" selected>中級 (標準的な難易度)</option>
-                    <option value="hard">上級 (全ての国・難関国含む)</option>
+                    <option value="hard">上級 (初級・中級以外の世界すべての国)</option>
                 </select>
             </div>
 
@@ -408,111 +489,211 @@
     </div>
 
     <!-- Explore Mode Popup -->
-    <div id="explore-modal" class="fixed bottom-6 left-1/2 -translate-x-1/2 glass-panel bg-slate-900/90 border border-emerald-500/40 rounded-2xl px-6 py-4 z-40 hidden shadow-2xl flex items-center gap-4 max-w-lg">
-        <div class="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl">
-            <i class="fa-solid fa-map-pin text-xl"></i>
+    <div id="explore-modal" class="fixed bottom-6 left-1/2 -translate-x-1/2 glass-panel bg-slate-900/95 border border-emerald-500/40 rounded-2xl px-6 py-4 z-40 hidden shadow-2xl flex items-center gap-4 max-w-lg w-11/12">
+        <div id="explore-flag" class="text-3xl bg-slate-800 p-2.5 rounded-xl border border-slate-700">
+            🗺️
         </div>
         <div class="flex-1">
             <div class="flex items-center justify-between">
-                <span class="text-xs text-emerald-400 font-bold uppercase tracking-wider">図鑑モード選択中</span>
+                <span class="text-xs text-emerald-400 font-bold uppercase tracking-wider">図鑑・探索モード</span>
                 <button onclick="openEditGeoModal()" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-semibold border border-slate-600">
-                    <i class="fa-solid fa-pen-to-square text-amber-400"></i> 特徴を編集
+                    <i class="fa-solid fa-pen-to-square text-amber-400"></i> 特徴編集
                 </button>
             </div>
-            <div id="explore-country-name" class="text-lg font-extrabold text-white">国をクリックしてください</div>
+            <div id="explore-country-name" class="text-lg font-black text-white">国をクリックしてください</div>
             <div id="explore-country-capital" class="text-xs text-slate-300 mb-1">首都: -</div>
-            <div id="explore-country-features" class="text-xs text-slate-400 italic"></div>
+            <div id="explore-country-features" class="text-xs text-slate-400 leading-tight"></div>
         </div>
     </div>
 
     <script>
-        // Master Database of Countries (Keys are 3-digit ISO codes)
-        const COUNTRY_DATA = {
-            "392": { name: "日本", aliases: ["にほん", "ニホン", "japan", "日本国"], capital: "東京", continent: "Asia", difficulty: "easy", center: [138, 36], geoFeatures: "ユーラシア大陸東沖に位置する弧状列島。国土の約7割が山林で、火山活動が多く地震多発帯にある。四季が明確。" },
-            "840": { name: "アメリカ合衆国", aliases: ["アメリカ", "あめりか", "usa", "us", "米国"], capital: "ワシントンD.C.", continent: "Americas", difficulty: "easy", center: [-95, 37], geoFeatures: "北アメリカ大陸に位置し、太平洋と大西洋に挟まれる。西部にロッキー山脈、中央部に広大な大平原（プレーリー）が広がる。" },
-            "156": { name: "中国", aliases: ["ちゅうごく", "チュウゴク", "china", "中華人民共和国"], capital: "北京", continent: "Asia", difficulty: "easy", center: [104, 35], geoFeatures: "ユーラシア大陸東部に位置し世界第3位の面積。西高東低の地形を持ち、西部にチベット高原、東部に広大な平野が広がる。" },
-            "643": { name: "ロシア", aliases: ["ろしあ", "russia", "ロシア連邦"], capital: "モスクワ", continent: "Europe", difficulty: "easy", center: [100, 60], geoFeatures: "世界最大の面積を誇りユーラシア大陸北部に広がる。ウラル山脈を境界にヨーロッパとアジアに分かれる。" },
-            "250": { name: "フランス", aliases: ["ふらんす", "france", "フランス共和国"], capital: "パリ", continent: "Europe", difficulty: "easy", center: [2, 46], geoFeatures: "西ヨーロッパに位置し、大西洋と地中海の両方に面する。平原が多く農業が盛ん。南東部にアルプス山脈が広がる。" },
-            "276": { name: "ドイツ", aliases: ["どいつ", "germany", "ドイツ連邦共和国"], capital: "ベルリン", continent: "Europe", difficulty: "easy", center: [10, 51], geoFeatures: "中央ヨーロッパに位置し北は北海・バルト海に面する。北部の平野部から南部に向かって山地・アルプス山脈へと高くなる。" },
-            "826": { name: "イギリス", aliases: ["いぎりす", "uk", "great britain", "英国", "連合王国"], capital: "ロンドン", continent: "Europe", difficulty: "easy", center: [-2, 54], geoFeatures: "ヨーロッパ北西沖のグレートブリテン島とアイルランド島北東部からなる島国。西岸海洋性気候で比較的温暖。" },
-            "356": { name: "インド", aliases: ["いんど", "india"], capital: "ニューデリー", continent: "Asia", difficulty: "easy", center: [78, 20], geoFeatures: "南アジアのインド半島を占める。北部にヒマラヤ山脈、中央部にデカン高原が広がる。モンスーン気候の影響が大きい。" },
-            "076": { name: "ブラジル", aliases: ["ぶらじる", "brazil"], capital: "ブラジリア", continent: "Americas", difficulty: "easy", center: [-51, -14], geoFeatures: "南アメリカ大陸最大の面積。世界最大の流域面積を持つアマゾン川流域の熱帯雨林とブラジル高原で構成される。" },
-            "036": { name: "オーストラリア", aliases: ["おーすとらりあ", "australia"], capital: "キャンベラ", continent: "Oceania", difficulty: "easy", center: [133, -25], geoFeatures: "オーストラリア大陸全域を占める。国土の大半は乾燥した砂漠・アウトバック。東海岸には大分水嶺山脈が連なる。" },
-            "380": { name: "イタリア", aliases: ["いたりあ", "italy"], capital: "ローマ", continent: "Europe", difficulty: "easy", center: [12, 41], geoFeatures: "地中海に突き出た靴の形をした半島国。北部にアルプス山脈、南北にアペニン山脈が走り、地中海性気候を持つ。" },
-            "724": { name: "スペイン", aliases: ["すぺいん", "spain"], capital: "マドリード", continent: "Europe", difficulty: "easy", center: [-3, 40], geoFeatures: "イベリア半島の大部分を占める。中央部にメセタと呼ばれる広大な台地が広がり、乾燥・高温の気候が見られる。" },
-            "124": { name: "カナダ", aliases: ["かなだ", "canada"], capital: "オタワ", continent: "Americas", difficulty: "easy", center: [-106, 56], geoFeatures: "北アメリカ大陸北部に位置し世界第2位の面積。無数の湖沼とタイガ（針葉樹林帯）、北極圏のツンドラが広がる。" },
-            "484": { name: "メキシコ", aliases: ["めきしこ", "mexico"], capital: "メキシコシティ", continent: "Americas", difficulty: "easy", center: [-102, 23], geoFeatures: "北アメリカ南部に位置し、東西をシエラマドレ山脈に挟まれた中央高地が国土の中心。乾燥地帯から熱帯まで多様。" },
-            "410": { name: "韓国", aliases: ["かんこく", "korea", "大韓民国"], capital: "ソウル", continent: "Asia", difficulty: "easy", center: [127, 36], geoFeatures: "朝鮮半島南部に位置する。国土の約7割が山地で、東部が高く西部に向かって緩やかになる東高西低の地形。" },
-            "710": { name: "南アフリカ", aliases: ["みなみあふりか", "south africa", "南アフリカ共和国"], capital: "プレトリア", continent: "Africa", difficulty: "easy", center: [22, -30], geoFeatures: "アフリカ大陸最南端に位置する。中央部に広大な高層台地が広がり、ドラケンスバーグ山脈が東部を走る。" },
-            "818": { name: "エジプト", aliases: ["えじぷと", "egypt"], capital: "カイロ", continent: "Africa", difficulty: "easy", center: [30, 26], geoFeatures: "アフリカ北東部に位置し国土の大半がサハラ砂漠。南北に貫流するナイル川沿いとそのデルタ地帯に人口が集中する。" },
-            "032": { name: "アルゼンチン", aliases: ["あるぜんちん", "argentina"], capital: "ブエノスアイレス", continent: "Americas", difficulty: "medium", center: [-63, -38], geoFeatures: "南アメリカ南部に位置し南北に長い。西部にアンデス山脈、東部に広大な大平原（パンパ）、南部にパタゴニア台地が広がる。" },
-            "360": { name: "インドネシア", aliases: ["いんどねしあ", "indonesia"], capital: "ジャカルタ", continent: "Asia", difficulty: "medium", center: [113, -0.7], geoFeatures: "17,000以上の島々からなる世界最大の環太平洋火山帯上の島嶼国。赤道下に位置し熱帯雨林気候を持つ。" },
-            "764": { name: "タイ", aliases: ["たい", "thailand", "タイ王国"], capital: "バンコク", continent: "Asia", difficulty: "medium", center: [100, 15], geoFeatures: "東南アジアのインドシナ半島中央部に位置。中央部にチャオプラヤ川による広大な肥沃な平野が広がる。" },
-            "792": { name: "トルコ", aliases: ["とるこ", "turkey", "türkiye"], capital: "アンカラ", continent: "Asia", difficulty: "medium", center: [35, 39], geoFeatures: "アジアとヨーロッパにまたがるアナトリア半島に位置。周囲を黒海、エーゲ海、地中海に囲まれた高原型地形。" },
-            "682": { name: "サウジアラビア", aliases: ["さうじあらびあ", "saudi arabia"], capital: "リヤド", continent: "Asia", difficulty: "medium", center: [45, 23], geoFeatures: "アラビア半島の約8割を占める。国土の大部分が砂漠と高原で、世界最大級の連続砂漠（ルブアルハリ砂漠）がある。" },
-            "704": { name: "ベトナム", aliases: ["べとなむ", "vietnam"], capital: "ハノイ", continent: "Asia", difficulty: "medium", center: [108, 14], geoFeatures: "インドシナ半島東部に沿って南北に細長いS字型の国土。北部に紅河デルタ、南部にメコンデルタが広がる。" },
-            "554": { name: "ニュージーランド", aliases: ["にゅーじーらんど", "new zealand"], capital: "ウェリントン", continent: "Oceania", difficulty: "medium", center: [174, -40], geoFeatures: "南太平洋に浮かぶ北島と南島からなる。北島は火山や温泉が多く、南島にはサザンアルプス山脈と氷河がある。" },
-            "756": { name: "スイス", aliases: ["すいす", "switzerland"], capital: "ベルン", continent: "Europe", difficulty: "medium", center: [8, 46], geoFeatures: "中央ヨーロッパの内陸国。国土の約6割をアルプス山脈が占め、数多くの美しい湖と氷河が存在する。" },
-            "752": { name: "スウェーデン", aliases: ["すうぇーでん", "sweden"], capital: "ストックホルム", continent: "Europe", difficulty: "medium", center: [18, 60], geoFeatures: "スカンジナビア半島の東側を占める。豊かな森林と数万の湖沼が存在し、西部にノルウェーとの国境となる山脈が伸びる。" },
-            "578": { name: "ノルウェー", aliases: ["のるうぇー", "norway"], capital: "オスロ", continent: "Europe", difficulty: "medium", center: [8, 60], geoFeatures: "スカンジナビア半島西側に南北に長く伸びる。氷河削剥によって形成された複雑で美しいフィヨルド海岸線を持つ。" },
-            "208": { name: "デンマーク", aliases: ["でんまーく", "denmark"], capital: "コペンハーゲン", continent: "Europe", difficulty: "medium", center: [9, 56], geoFeatures: "ユトランド半島と数多くの島々からなる。起伏が極めて少なく最高標高も約170m程度と平坦な国土。" },
-            "528": { name: "オランダ", aliases: ["おらんだ", "netherlands"], capital: "アムステルダム", continent: "Europe", difficulty: "medium", center: [5, 52], geoFeatures: "国土の約4分の1が海面より低い。干拓地（ポルダー）と堤防技術で知られ、ライン川の河口部に位置。" },
-            "300": { name: "ギリシャ", aliases: ["ぎりしゃ", "greece"], capital: "アテネ", continent: "Europe", difficulty: "medium", center: [22, 39], geoFeatures: "バルカン半島最南端とエーゲ海の数千の島々からなる。山地が多く平地が少ない地中海性気候の国。" },
-            "616": { name: "ポーランド", aliases: ["ぽーらんど", "poland"], capital: "ワルシャワ", continent: "Europe", difficulty: "medium", center: [19, 52], geoFeatures: "中央ヨーロッパに位置し北はバルト海に面する。国土のほとんどが北ヨーロッパ平原の一部で平坦。" },
-            "804": { name: "ウクライナ", aliases: ["うくらいな", "ukraine"], capital: "キーウ", continent: "Europe", difficulty: "medium", center: [31, 49], geoFeatures: "東ヨーロッパの広大な平原国。肥沃な黒土（チェルノーゼム）地帯が広がり穀倉地帯として知られる。" },
-            "170": { name: "コロンビア", aliases: ["ころんびあ", "colombia"], capital: "ボゴタ", continent: "Americas", difficulty: "medium", center: [-74, 4], geoFeatures: "南アメリカ北西部に位置し太平洋とカリブ海の両方に面する唯一の国。アンデス山脈が3筋に分かれて北上する。" },
-            "604": { name: "ペルー", aliases: ["ぺるー", "peru"], capital: "リマ", continent: "Americas", difficulty: "medium", center: [-75, -9], geoFeatures: "太平洋沿岸の乾燥帯（コスタ）、中央部の高山帯アンデス（シエラ）、東部のアマゾン熱帯雨林（セルバ）の3地域に分かれる。" },
-            "152": { name: "チリ", aliases: ["ちり", "chile"], capital: "サンティアゴ", continent: "Americas", difficulty: "medium", center: [-71, -35], geoFeatures: "太平洋とアンデス山脈に挟まれた世界一南北に細長い国。北部の乾燥したアタカマ砂漠から南部の氷河地帯まで多彩。" },
-            "404": { name: "ケニア", aliases: ["けにあ", "kenya"], capital: "ナイロビ", continent: "Africa", difficulty: "medium", center: [38, 0], geoFeatures: "東アフリカの赤道直下に位置しインド洋に面する。大地溝帯（リフトバレー）が貫き、サバナ気候と豊富な野生動物が生息。" },
-            "450": { name: "マダガスカル", aliases: ["まだがすかる", "madagascar"], capital: "アンタナナリボ", continent: "Africa", difficulty: "medium", center: [46, -18], geoFeatures: "アフリカ東沖に浮かぶ世界第4位の島国。中央に高地が走り、独自の進化を遂げた固有種が数多く生息する。" },
-            "352": { name: "アイスランド", aliases: ["あいすらんど", "iceland"], capital: "レイキャビク", continent: "Europe", difficulty: "medium", center: [-18, 64], geoFeatures: "北大西洋の北極圏直下に位置する火山島。氷河と地熱活動が共存する「氷と火の島」として知られる。" }
-        };
-
-        // Game State Variables
+        // Global Game State
+        let svg, g, projection, path, zoom;
+        let activeCountryId = null;
+        let activeCountryObj = null;
         let score = 0;
         let streak = 0;
         let currentQuestionNum = 1;
-        let activeCountryId = null;
-        let activeCountryObj = null;
         let usedCountryIds = new Set();
         let exploreMode = false;
+        let soundEnabled = true;
+        let timerInterval = null;
+        let timeLeft = 60;
 
-        let settings = {
+        const settings = {
+            quizType: 'input',
             mode: 'standard',
             difficulty: 'medium',
             region: 'all'
         };
 
-        let timerInterval = null;
-        let timeLeft = 60;
+        // Master Database of Countries
+        const COUNTRY_DATA = {
+            // --- 初級 (EASY) ---
+            "392": { name: "日本", aliases: ["にほん", "ニホン", "japan", "日本国"], flag: "🇯🇵", capital: "東京", continent: "Asia", difficulty: "easy", center: [138, 36], geoFeatures: "ユーラシア大陸東沖に位置する弧状列島。国土の約7割が山林で、火山活動が多く地震多発帯にある。" },
+            "840": { name: "アメリカ合衆国", aliases: ["アメリカ", "あめりか", "usa", "us", "米国"], flag: "🇺🇸", capital: "ワシントンD.C.", continent: "Americas", difficulty: "easy", center: [-95, 37], geoFeatures: "北アメリカ大陸に位置し、太平洋と大西洋に挟まれる。西部にロッキー山脈、中央部に広大な大平原が広がる。" },
+            "156": { name: "中国", aliases: ["ちゅうごく", "チュウゴク", "china", "中華人民共和国"], flag: "🇨🇳", capital: "北京", continent: "Asia", difficulty: "easy", center: [104, 35], geoFeatures: "ユーラシア大陸東部に位置し世界第3位の面積。西高東低の地形を持ち、西部にチベット高原が広がる。" },
+            "643": { name: "ロシア", aliases: ["ろしあ", "russia", "ロシア連邦"], flag: "🇷🇺", capital: "モスクワ", continent: "Europe", difficulty: "easy", center: [100, 60], geoFeatures: "世界最大の面積を誇りユーラシア大陸北部に広がる。ウラル山脈を境界にヨーロッパとアジアに分かれる。" },
+            "250": { name: "フランス", aliases: ["ふらんす", "france", "フランス共和国"], flag: "🇫🇷", capital: "パリ", continent: "Europe", difficulty: "easy", center: [2, 46], geoFeatures: "西ヨーロッパに位置し、大西洋と地中海の両方に面する。平原が多く農業が盛ん。" },
+            "276": { name: "ドイツ", aliases: ["どいつ", "germany", "ドイツ連邦共和国"], flag: "🇩🇪", capital: "ベルリン", continent: "Europe", difficulty: "easy", center: [10, 51], geoFeatures: "中央ヨーロッパに位置し北は北海・バルト海に面する。北部の平野部から南部に向かって山地が高くなる。" },
+            "826": { name: "イギリス", aliases: ["いぎりす", "uk", "great britain", "英国", "連合王国"], flag: "🇬🇧", capital: "ロンドン", continent: "Europe", difficulty: "easy", center: [-2, 54], geoFeatures: "ヨーロッパ北西沖のグレートブリテン島とアイルランド島北東部からなる島国。" },
+            "356": { name: "インド", aliases: ["いんど", "india"], flag: "🇮🇳", capital: "ニューデリー", continent: "Asia", difficulty: "easy", center: [78, 20], geoFeatures: "南アジアのインド半島を占める。北部にヒマラヤ山脈、中央部にデカン高原が広がる。" },
+            "076": { name: "ブラジル", aliases: ["ぶらじる", "brazil"], flag: "🇧🇷", capital: "ブラジリア", continent: "Americas", difficulty: "easy", center: [-51, -14], geoFeatures: "南アメリカ大陸最大の面積。世界最大の流域面積を持つアマゾン川流域の熱帯雨林が広がる。" },
+            "036": { name: "オーストラリア", aliases: ["おーすとらりあ", "australia"], flag: "🇦🇺", capital: "キャンベラ", continent: "Oceania", difficulty: "easy", center: [133, -25], geoFeatures: "オーストラリア大陸全域を占める。国土の大半は乾燥した砂漠・アウトバック。" },
+            "380": { name: "イタリア", aliases: ["いたりあ", "italy"], flag: "🇮🇹", capital: "ローマ", continent: "Europe", difficulty: "easy", center: [12, 41], geoFeatures: "地中海に突き出た靴の形をした半島国。北部にアルプス山脈、南北にアペニン山脈が走る。" },
+            "724": { name: "スペイン", aliases: ["すぺいん", "spain"], flag: "🇪🇸", capital: "マドリード", continent: "Europe", difficulty: "easy", center: [-3, 40], geoFeatures: "イベリア半島の大部分を占める。中央部にメセタと呼ばれる広大な台地が広がる。" },
+            "124": { name: "カナダ", aliases: ["かなだ", "canada"], flag: "🇨🇦", capital: "オタワ", continent: "Americas", difficulty: "easy", center: [-106, 56], geoFeatures: "北アメリカ大陸北部に位置し世界第2位の面積。無数の湖沼と針葉樹林帯（タイガ）が広がる。" },
+            "484": { name: "メキシコ", aliases: ["めきしこ", "mexico"], flag: "🇲🇽", capital: "メキシコシティ", continent: "Americas", difficulty: "easy", center: [-102, 23], geoFeatures: "北アメリカ南部に位置し、中央高地が国土の中心。乾燥地帯から熱帯まで気候が多様。" },
+            "410": { name: "韓国", aliases: ["かんこく", "korea", "大韓民国"], flag: "🇰🇷", capital: "ソウル", continent: "Asia", difficulty: "easy", center: [127, 36], geoFeatures: "朝鮮半島南部に位置する。国土の約7割が山地で、東高西低の地形。" },
+            "710": { name: "南アフリカ", aliases: ["みなみあふりか", "south africa", "南アフリカ共和国"], flag: "🇿🇦", capital: "プレトリア", continent: "Africa", difficulty: "easy", center: [22, -30], geoFeatures: "アフリカ大陸最南端に位置する。中央部に高層台地が広がり、金やダイヤモンドなど鉱物資源が豊富。" },
+            "818": { name: "エジプト", aliases: ["えじぷと", "egypt"], flag: "🇪🇬", capital: "カイロ", continent: "Africa", difficulty: "easy", center: [30, 26], geoFeatures: "アフリカ北東部に位置し国土の大半がサハラ砂漠。南北に貫流するナイル川沿いに人口が集中する。" },
 
-        // D3 & Map Variables
-        let svg, g, projection, path, zoom;
-        let worldGeoData = null;
+            // --- 中級 (MEDIUM) ---
+            "032": { name: "アルゼンチン", aliases: ["あるぜんちん", "argentina"], flag: "🇦🇷", capital: "ブエノスアイレス", continent: "Americas", difficulty: "medium", center: [-63, -38], geoFeatures: "南アメリカ南部に位置。西部にアンデス山脈、東部に広大な大平原パンパが広がる。" },
+            "360": { name: "インドネシア", aliases: ["いんどねしあ", "indonesia"], flag: "🇮🇩", capital: "ジャカルタ", continent: "Asia", difficulty: "medium", center: [113, -0.7], geoFeatures: "17,000以上の島々からなる世界最大の島嶼国。赤道直下に位置し熱帯雨林気候を持つ。" },
+            "764": { name: "タイ", aliases: ["たい", "thailand", "タイ王国"], flag: "🇹🇭", capital: "バンコク", continent: "Asia", difficulty: "medium", center: [100, 15], geoFeatures: "東南アジアのインドシナ半島中央部に位置。中央部にチャオプラヤ川による肥沃な平野が広がる。" },
+            "792": { name: "トルコ", aliases: ["とるこ", "turkey", "türkiye"], flag: "🇹🇷", capital: "アンカラ", continent: "Asia", difficulty: "medium", center: [35, 39], geoFeatures: "アジアとヨーロッパにまたがるアナトリア半島に位置。黒海、エーゲ海、地中海に囲まれる。" },
+            "682": { name: "サウジアラビア", aliases: ["さうじあらびあ", "saudi arabia"], flag: "🇸🇦", capital: "リヤド", continent: "Asia", difficulty: "medium", center: [45, 23], geoFeatures: "アラビア半島の約8割を占める。国土の大部分が砂漠と高原で構成される。" },
+            "704": { name: "ベトナム", aliases: ["べとなむ", "vietnam"], flag: "🇻🇳", capital: "ハノイ", continent: "Asia", difficulty: "medium", center: [108, 14], geoFeatures: "インドシナ半島東部に沿って南北に細長いS字型の国土。紅河とメコン川のふたつのデルタを持つ。" },
+            "554": { name: "ニュージーランド", aliases: ["にゅーじーらんど", "new zealand"], flag: "🇳🇿", capital: "ウェリントン", continent: "Oceania", difficulty: "medium", center: [174, -40], geoFeatures: "南太平洋に浮かぶ北島と南島からなる。火山活動と氷河削剥による地形が特徴。" },
+            "756": { name: "スイス", aliases: ["すいす", "switzerland"], flag: "🇨🇭", capital: "ベルン", continent: "Europe", difficulty: "medium", center: [8, 46], geoFeatures: "中央ヨーロッパの内陸国。国土の約6割をアルプス山脈が占める。" },
+            "752": { name: "スウェーデン", aliases: ["すうぇーでん", "sweden"], flag: "🇸🇪", capital: "ストックホルム", continent: "Europe", difficulty: "medium", center: [18, 60], geoFeatures: "スカンジナビア半島の東側を占める。豊かな森林と数万の湖沼が存在する。" },
+            "578": { name: "ノルウェー", aliases: ["のるうぇー", "norway"], flag: "🇳🇴", capital: "オスロ", continent: "Europe", difficulty: "medium", center: [8, 60], geoFeatures: "スカンジナビア半島西側に南北に長く伸びる。複雑で美しいフィヨルド海岸線を持つ。" },
+            "208": { name: "デンマーク", aliases: ["でんまーく", "denmark"], flag: "🇩🇰", capital: "コペンハーゲン", continent: "Europe", difficulty: "medium", center: [9, 56], geoFeatures: "ユトランド半島と数多くの島々からなる。起伏が極めて少なく平坦な国土。" },
+            "528": { name: "オランダ", aliases: ["おらんだ", "netherlands"], flag: "🇳🇱", capital: "アムステルダム", continent: "Europe", difficulty: "medium", center: [5, 52], geoFeatures: "国土の約4分の1が海面より低い。干拓地（ポルダー）と堤防技術で知られる。" },
+            "300": { name: "ギリシャ", aliases: ["ぎりしゃ", "greece"], flag: "🇬🇷", capital: "アテネ", continent: "Europe", difficulty: "medium", center: [22, 39], geoFeatures: "バルカン半島最南端とエーゲ海の数千の島々からなる。歴史的な遺跡が多数残る。" },
+            "616": { name: "ポーランド", aliases: ["ぽーらんど", "poland"], flag: "🇵🇱", capital: "ワルシャワ", continent: "Europe", difficulty: "medium", center: [19, 52], geoFeatures: "中央ヨーロッパに位置し北はバルト海に面する。国土のほとんどが平坦な北ヨーロッパ平原。" },
+            "804": { name: "ウクライナ", aliases: ["うくらいな", "ukraine"], flag: "🇺🇦", capital: "キーウ", continent: "Europe", difficulty: "medium", center: [31, 49], geoFeatures: "東ヨーロッパの広大な平原国。肥沃な黒土地帯（チェルノーゼム）が広がる。" },
+            "170": { name: "コロンビア", aliases: ["ころんびあ", "colombia"], flag: "🇨🇴", capital: "ボゴタ", continent: "Americas", difficulty: "medium", center: [-74, 4], geoFeatures: "南アメリカ北西部に位置し太平洋とカリブ海の両方に面する唯一の国。" },
+            "604": { name: "ペルー", aliases: ["ぺるー", "peru"], flag: "🇵🇪", capital: "リマ", continent: "Americas", difficulty: "medium", center: [-75, -9], geoFeatures: "太平洋沿岸の砂漠、中央部の高山帯アンデス、東部のアマゾン熱帯雨林の3地域に分かれる。" },
+            "152": { name: "チリ", aliases: ["ちり", "chile"], flag: "🇨🇱", capital: "サンティアゴ", continent: "Americas", difficulty: "medium", center: [-71, -35], geoFeatures: "太平洋とアンデス山脈に挟まれた南北約4300kmに及ぶ世界一南北に細長い国。" },
+            "404": { name: "ケニア", aliases: ["けニア", "kenya"], flag: "🇰🇪", capital: "ナイロビ", continent: "Africa", difficulty: "medium", center: [38, 0], geoFeatures: "東アフリカの赤道直下に位置。大地溝帯（リフトバレー）が貫き、サバナ気候が広がる。" },
+            "450": { name: "マダガスカル", aliases: ["まだがすかる", "madagascar"], flag: "🇲🇬", capital: "アンタナナリボ", continent: "Africa", difficulty: "medium", center: [46, -18], geoFeatures: "アフリカ東沖に浮かぶ世界第4位の巨大な島国。独自の生態系を持つ固有種が豊富。" },
+            "352": { name: "アイスランド", aliases: ["あいすらんど", "iceland"], flag: "🇮🇸", capital: "レイキャビク", continent: "Europe", difficulty: "medium", center: [-18, 64], geoFeatures: "北大西洋の北極圏直下に位置する火山島。「氷と火の島」として知られる。" },
 
-        window.onload = function() {
-            initMap();
-            setupKeyboardListeners();
+            // --- 上級 (HARD) - 初級・中級以外の世界すべての国々 ---
+            // --- アジア ---
+            "004": { name: "アフガニスタン", aliases: ["あふがにすたん", "afghanistan"], flag: "🇦🇫", capital: "カブール", continent: "Asia", difficulty: "hard", center: [66, 33], geoFeatures: "ヒンドゥークシュ山脈が国土を横断するアジア内陸の山岳国。" },
+            "586": { name: "パキスタン", aliases: ["ぱきすたん", "pakistan"], flag: "🇵🇰", capital: "イスラマバード", continent: "Asia", difficulty: "hard", center: [69, 30], geoFeatures: "インダス川流域に位置し、古代インダス文明の発祥地として知られる。" },
+            "050": { name: "バングラデシュ", aliases: ["ばんぐらでしゅ", "bangladesh"], flag: "🇧🇩", capital: "ダッカ", continent: "Asia", difficulty: "hard", center: [90, 24], geoFeatures: "ガンジス川とブラマプトラ川の広大なデルタ地帯に位置する高人口密度国。" },
+            "144": { name: "スリランカ", aliases: ["すりらんか", "sri lanka"], flag: "🇱🇰", capital: "スリジャヤワルダナプラコーッテ", continent: "Asia", difficulty: "hard", center: [80.7, 7.8], geoFeatures: "インド洋に浮かぶ島国。「インド洋の真珠」と称され茶（セイロンティー）の産地。" },
+            "524": { name: "ネパール", aliases: ["ねぱーる", "nepal"], flag: "🇳🇵", capital: "カトマンズ", continent: "Asia", difficulty: "hard", center: [84, 28], geoFeatures: "世界最高峰エベレスト（サガルマータ）を含むヒマラヤ山脈の麓に広がる山岳国。" },
+            "104": { name: "ミャンマー", aliases: ["みんまー", "myanmar", "ビルマ"], flag: "🇲🇲", capital: "ネピドー", continent: "Asia", difficulty: "hard", center: [96, 21], geoFeatures: "東南アジア西端に位置し、エーヤワディー川が南北に貫く仏教文化の国。" },
+            "458": { name: "マレーシア", aliases: ["まれーしあ", "malaysia"], flag: "🇲🇾", capital: "クアラルンプール", continent: "Asia", difficulty: "hard", center: [102, 4], geoFeatures: "マレー半島南部とボルネオ島北部に分かれた国土を持つ多民族国家。" },
+            "608": { name: "フィリピン", aliases: ["ふぃりぴん", "philippines"], flag: "🇵🇭", capital: "マニラ", continent: "Asia", difficulty: "hard", center: [122, 13], geoFeatures: "7,000以上の島々からなる東南アジアの太平洋島嶼国。" },
+            "408": { name: "北朝鮮", aliases: ["きたちょうせん", "north korea", "朝鮮民主主義人民共和国"], flag: "🇰🇵", capital: "平壌", continent: "Asia", difficulty: "hard", center: [127, 40], geoFeatures: "朝鮮半島北部に位置し、白頭山などの山地が多くの面積を占める。" },
+            "368": { name: "イラク", aliases: ["いらく", "iraq"], flag: "🇮🇶", capital: "バグダッド", continent: "Asia", difficulty: "hard", center: [43.7, 33], geoFeatures: "チグリス・ユーフラテス川が流れ、メソポタミア文明の発祥地となった地。" },
+            "364": { name: "イラン", aliases: ["いらん", "iran"], flag: "🇮🇷", capital: "テヘラン", continent: "Asia", difficulty: "hard", center: [53, 32], geoFeatures: "古代ペルシア帝国の歴史を保持し、広大なイラン高原を中心に広がる。" },
+            "760": { name: "シリア", aliases: ["しりあ", "syria"], flag: "🇸🇾", capital: "ダマスカス", continent: "Asia", difficulty: "hard", center: [38, 35], geoFeatures: "中東の地中海東岸に位置。首都ダマスカスは世界最古の継続居住都市の一つ。" },
+            "400": { name: "ヨルダン", aliases: ["よるだん", "jordan"], flag: "🇯🇴", capital: "アンマン", continent: "Asia", difficulty: "hard", center: [36, 31], geoFeatures: "世界一低い塩湖「死海」や世界遺産ペトラ遺跡を保有する中東の国。" },
+            "422": { name: "レバノン", aliases: ["ればのん", "lebanon"], flag: "🇱🇧", capital: "ベイルート", continent: "Asia", difficulty: "hard", center: [35.8, 33.8], geoFeatures: "地中海東岸の歴史的な交易地。国旗にも描かれるレバノンスギで有名。" },
+            "376": { name: "イスラエル", aliases: ["いすらえる", "israel"], flag: "🇮🇱", capital: "エルサレム", continent: "Asia", difficulty: "hard", center: [34.8, 31.5], geoFeatures: "ユダヤ教・キリスト教・イスラム教の聖地エルサレムを擁する地中海東岸国。" },
+            "887": { name: "イエメン", aliases: ["いえめん", "yemen"], flag: "🇾🇪", capital: "サナア", continent: "Asia", difficulty: "hard", center: [48, 15], geoFeatures: "アラビア半島南西端に位置。「幸福のアラビア」と呼ばれた古代交易の拠点。" },
+            "512": { name: "オマーン", aliases: ["おまーん", "oman"], flag: "🇴🇲", capital: "マスカット", continent: "Asia", difficulty: "hard", center: [57, 21], geoFeatures: "アラビア半島東端に位置し、長い海岸線と美しい砂漠景観を持つスルタン国。" },
+            "784": { name: "アラブ首長国連邦", aliases: ["uae", "あらぶしゅちょうこくれんぽう", "ドバイ"], flag: "🇦🇪", capital: "アブダビ", continent: "Asia", difficulty: "hard", center: [54, 24], geoFeatures: "7つの首長国で構成される連邦国家。ドバイやアブダビの近代都市が有名。" },
+            "414": { name: "クウェート", aliases: ["くうぇーと", "kuwait"], flag: "🇰🇼", capital: "クウェート市", continent: "Asia", difficulty: "hard", center: [47.5, 29.3], geoFeatures: "ペルシャ湾奥に位置する石油資源が非常に富んだ産油国。" },
+            "634": { name: "カタール", aliases: ["かたーる", "qatar"], flag: "🇶🇦", capital: "ドーハ", continent: "Asia", difficulty: "hard", center: [51.2, 25.3], geoFeatures: "ペルシャ湾に突き出た小半島国。世界有数のLNG（液化天然ガス）輸出国。" },
+            "031": { name: "アゼルバイジャン", aliases: ["あぜるばいじゃん", "azerbaijan"], flag: "🇦🇿", capital: "バクー", continent: "Asia", difficulty: "hard", center: [47.5, 40.5], geoFeatures: "カスピ海西岸に位置。「火の国」と呼ばれ石油と天然ガス資源が豊富。" },
+            "051": { name: "アルメニア", aliases: ["あるめにあ", "armenia"], flag: "🇦🇲", capital: "エレバン", continent: "Asia", difficulty: "hard", center: [45, 40], geoFeatures: "世界で初めてキリスト教を国教化した伝統あるコーカサスの内陸国。" },
+            "268": { name: "ジョージア", aliases: ["じょーじあ", "georgia", "グルジア"], flag: "🇬🇪", capital: "トビリシ", continent: "Asia", difficulty: "hard", center: [43.5, 42], geoFeatures: "黒海東岸に位置。8,000年の歴史を誇るワイン醸造の発祥地として知られる。" },
+            "398": { name: "カザフスタン", aliases: ["かざふすたん", "kazakhstan"], flag: "🇰🇿", capital: "アスタナ", continent: "Asia", difficulty: "hard", center: [68, 48], geoFeatures: "世界最大の内陸国。中央アジアに位置し広大なステップが広がる。" },
+            "860": { name: "ウズベキスタン", aliases: ["うずべきすたん", "uzbekistan"], flag: "🇺🇿", capital: "タシュケント", continent: "Asia", difficulty: "hard", center: [64, 41], geoFeatures: "シルクロードの青の都サマルカンドで有名な中央アジアの二重内陸国。" },
+            "795": { name: "トルクメニスタン", aliases: ["とるくめにすたん", "turkmenistan"], flag: "🇹🇲", capital: "アシガバート", continent: "Asia", difficulty: "hard", center: [59, 39], geoFeatures: "カラクム砂漠が国土の大半を占め「地獄の門」ガスクレーターが存在。" },
+            "417": { name: "キルギス", aliases: ["きるぎす", "kyrgyzstan"], flag: "🇰🇬", capital: "ビシュケク", continent: "Asia", difficulty: "hard", center: [74, 41], geoFeatures: "国土の9割以上が山地でイシク・クル湖など絶景を持つ「中央アジアのスイス」。" },
+            "762": { name: "タジキスタン", aliases: ["たじきすたん", "tajikistan"], flag: "🇹🇯", capital: "ドゥシャンベ", continent: "Asia", difficulty: "hard", center: [71, 38], geoFeatures: "パミール高原が広がり高山地形と豊かな水資源を持つ山岳国家。" },
+            "064": { name: "ブータン", aliases: ["ぶーたん", "bhutan"], flag: "🇧🇹", capital: "ティンプー", continent: "Asia", difficulty: "hard", center: [90, 27], geoFeatures: "ヒマラヤ南麓の内陸国。国民総幸福量（GNH）重視の国方針で知られる。" },
+            "418": { name: "ラオス", aliases: ["らおす", "laos"], flag: "🇱🇦", capital: "ビエンチャン", continent: "Asia", difficulty: "hard", center: [102, 18], geoFeatures: "東南アジアで唯一の内陸国。メコン川が南北を流れる。" },
+            "496": { name: "モンゴル", aliases: ["もんごる", "mongolia"], flag: "🇲🇳", capital: "ウランバートル", continent: "Asia", difficulty: "hard", center: [103, 46], geoFeatures: "大草原ステップとゴビ砂漠が広がり遊牧文化が色濃く残る内陸国。" },
+            "116": { name: "カンボジア", aliases: ["かんぼじあ", "cambodia"], flag: "🇰🇭", capital: "プノンペン", continent: "Asia", difficulty: "hard", center: [104, 12], geoFeatures: "世界遺産アンコール・ワットや巨大なトンレサップ湖で知られる。" },
+            "096": { name: "ブルネイ", aliases: ["ぶるねい", "brunei"], flag: "🇧🇳", capital: "バンダルスリブガワン", continent: "Asia", difficulty: "hard", center: [114, 4.5], geoFeatures: "ボルネオ島北部の裕福なイスラム立憲君主制国家。" },
+
+            // --- ヨーロッパ ---
+            "372": { name: "アイルランド", aliases: ["あいるらんど", "ireland"], flag: "🇮🇪", capital: "ダブリン", continent: "Europe", difficulty: "hard", center: [-8, 53], geoFeatures: "北大西洋の「エメラルドの島」。緑豊かな牧草地とケルト文化を持つ。" },
+            "620": { name: "ポルトガル", aliases: ["ぽるとがる", "portugal"], flag: "🇵🇹", capital: "リスボン", continent: "Europe", difficulty: "hard", center: [-8, 39.5], geoFeatures: "イベリア半島西端の大航海時代の歴史を誇る大西洋面国。" },
+            "056": { name: "ベルギー", aliases: ["べるぎー", "belgium"], flag: "🇧🇪", capital: "ブリュッセル", continent: "Europe", difficulty: "hard", center: [4.5, 50.8], geoFeatures: "EUやNATOの本部が置かれる西ヨーロッパの主要外交拠点。" },
+            "040": { name: "オーストリア", aliases: ["おーすとりあ", "austria"], flag: "🇦🇹", capital: "ウィーン", continent: "Europe", difficulty: "hard", center: [14.5, 47.5], geoFeatures: "アルプス山脈東部に位置し音楽と歴史的建築物で名高い内陸国。" },
+            "203": { name: "チェコ", aliases: ["ちぇこ", "czechia", "czech republic"], flag: "🇨🇿", capital: "プラハ", continent: "Europe", difficulty: "hard", center: [15.5, 49.8], geoFeatures: "百塔の街プラハを有し世界最高峰のビール消費量を誇る国。" },
+            "348": { name: "ハンガリー", aliases: ["はんがりー", "hungary"], flag: "🇭🇺", capital: "ブダペスト", continent: "Europe", difficulty: "hard", center: [19.5, 47.2], geoFeatures: "ドナウ川が中央を流れ温泉文化とパプリカ料理で有名な平原国。" },
+            "642": { name: "ルーマニア", aliases: ["るーまにあ", "romania"], flag: "🇷🇴", capital: "ブカレスト", continent: "Europe", difficulty: "hard", center: [25, 46], geoFeatures: "カルパチア山脈と黒海に囲まれ、ドラキュラ伝説のブラン城がある。" },
+            "100": { name: "ブルガリア", aliases: ["ぶるがりあ", "bulgaria"], flag: "🇧🇬", capital: "ソフィア", continent: "Europe", difficulty: "hard", center: [25, 42.7], geoFeatures: "バルカン半島東部に位置しバラのオイル産地やヨーグルトで著名。" },
+            "688": { name: "セルビア", aliases: ["せるびあ", "serbia"], flag: "🇷🇸", capital: "ベオグラード", continent: "Europe", difficulty: "hard", center: [21, 44], geoFeatures: "バルカン半島の交通の要衝に位置する歴史的な内陸国家。" },
+            "070": { name: "ボスニア・ヘルツェゴビナ", aliases: ["ぼすにあ", "bosnia"], flag: "🇧🇦", capital: "サラエボ", continent: "Europe", difficulty: "hard", center: [17.8, 44], geoFeatures: "ディナル・アルプス山脈に覆われ多文化・多宗教が交差する国。" },
+            "191": { name: "クロアチア", aliases: ["くろあちあ", "croatia"], flag: "🇭🇷", capital: "ザグレブ", continent: "Europe", difficulty: "hard", center: [15.5, 45.1], geoFeatures: "アドリア海沿岸の「ドゥブロヴニク」など美しい旧市街と海岸を持つ。" },
+            "246": { name: "フィンランド", aliases: ["ふぃんらんど", "finland"], flag: "🇫🇮", capital: "ヘルシンキ", continent: "Europe", difficulty: "hard", center: [26, 64], geoFeatures: "「森と湖の国」として知られサウナ文化やオーロラ観察で有名。" },
+            "498": { name: "モルドバ", aliases: ["もるどば", "moldova"], flag: "🇲🇩", capital: "キシナウ", continent: "Europe", difficulty: "hard", center: [28, 47], geoFeatures: "伝統的なワイン醸造技術と広大な地下セラーを抱える内陸国。" },
+            "807": { name: "北マケドニア", aliases: ["きたまけどにあ", "north macedonia"], flag: "🇲🇰", capital: "スコピエ", continent: "Europe", difficulty: "hard", center: [21, 41.6], geoFeatures: "バルカン半島中央部の山脈と自然豊かな湖畔に囲まれた国。" },
+            "703": { name: "スロバキア", aliases: ["すろばきあ", "slovakia"], flag: "🇸🇰", capital: "ブラチスラバ", continent: "Europe", difficulty: "hard", center: [19.5, 48.6], geoFeatures: "タトラ山脈の雄大な景色と世界遺産の古城群を持つ中央欧州国。" },
+            "705": { name: "スロベニア", aliases: ["すろべにあ", "slovenia"], flag: "🇸🇮", capital: "リュブリャナ", continent: "Europe", difficulty: "hard", center: [15, 46], geoFeatures: "アルプス最東端のブレッド湖や広大なカルスト洞窟群で知られる。" },
+            "008": { name: "アルバニア", aliases: ["あるばにあ", "albania"], flag: "🇦🇱", capital: "ティラナ", continent: "Europe", difficulty: "hard", center: [20, 41], geoFeatures: "アドリア海とイオニア海に面する山勝ちなバルカン半島の国。" },
+            "499": { name: "モンテネグロ", aliases: ["もんてねぐろ", "montenegro"], flag: "🇲🇪", capital: "ポドゴリツァ", continent: "Europe", difficulty: "hard", center: [19.2, 42.7], geoFeatures: "「黒い山」を意味しアドリア海の美しいコトル湾を擁する。" },
+            "112": { name: "ベラルーシ", aliases: ["べらーるし", "belarus"], flag: "🇧🇾", capital: "ミンスク", continent: "Europe", difficulty: "hard", center: [28, 53.5], geoFeatures: "ヨーロッパ最大の原生林ビャウォヴィエジャの森が広がる平原国。" },
+            "233": { name: "エストニア", aliases: ["えすとにあ", "estonia"], flag: "🇪🇪", capital: "タリン", continent: "Europe", difficulty: "hard", center: [25, 59], geoFeatures: "バルト三国最北部。高度にデジタル化された電子政府国家。" },
+            "428": { name: "ラトビア", aliases: ["らとびあ", "latvia"], flag: "🇱🇻", capital: "リガ", continent: "Europe", difficulty: "hard", center: [24, 57], geoFeatures: "バルト三国の中央。アール・ヌーヴォー建築が美しい歴史都市リガを持つ。" },
+            "440": { name: "リトアニア", aliases: ["りとあにあ", "lithuania"], flag: "🇱🇹", capital: "ヴィルニュス", continent: "Europe", difficulty: "hard", center: [24, 55], geoFeatures: "バルト三国最南端。十字架の丘やバルト海の琥珀産地として著名。" },
+
+            // --- 南北アメリカ ---
+            "862": { name: "ベネズエラ", aliases: ["べねずえら", "venezuela"], flag: "🇻🇪", capital: "カラカス", continent: "Americas", difficulty: "hard", center: [-66, 7], geoFeatures: "世界最大の落差を持つエンジェルフォールや世界有数の原油埋蔵量を持つ。" },
+            "218": { name: "エクアドル", aliases: ["えくあどる", "ecuador"], flag: "🇪🇨", capital: "キト", continent: "Americas", difficulty: "hard", center: [-78.5, -1.8], geoFeatures: "赤道直下に位置し進化論で有名なガラパゴス諸島を保有する。" },
+            "858": { name: "ウルグアイ", aliases: ["うるぐあい", "uruguay"], flag: "🇺🇾", capital: "モンテビデオ", continent: "Americas", difficulty: "hard", center: [-56, -33], geoFeatures: "ラプラタ川河口に位置する平坦な牧草地が広がる南米の国。" },
+            "068": { name: "ボリビア", aliases: ["ぼりびあ", "bolivia"], flag: "🇧🇴", capital: "ラパス", continent: "Americas", difficulty: "hard", center: [-64, -16], geoFeatures: "標高3,600m超に広がる絶景「ウユニ塩湖」を擁するアンデスの内陸国。" },
+            "600": { name: "パラグアイ", aliases: ["ぱらぐあい", "paraguay"], flag: "🇵🇾", capital: "アスンシオン", continent: "Americas", difficulty: "hard", center: [-58, -23], geoFeatures: "パラグアイ川が国土を二分する南米中央部の内陸国。" },
+            "740": { name: "スリナム", aliases: ["すりなむ", "suriname"], flag: "🇸🇷", capital: "パラマリボ", continent: "Americas", difficulty: "hard", center: [-56, 4], geoFeatures: "南米最小の独立国でオランダ語が公用語。国土の多くが熱帯雨林。" },
+            "328": { name: "ガイアナ", aliases: ["がいあな", "guyana"], flag: "🇬🇾", capital: "ジョージタウン", continent: "Americas", difficulty: "hard", center: [-59, 5], geoFeatures: "南米で唯一英語を公用語としカイエトゥールの滝など自然が豊か。" },
+            "192": { name: "キューバ", aliases: ["きゅーば", "cuba"], flag: "🇨🇺", capital: "ハバナ", continent: "Americas", difficulty: "hard", center: [-79.5, 21.5], geoFeatures: "カリブ海最大の島国。クラシックカーやクラシック音楽で知られる。" },
+            "332": { name: "ハイチ", aliases: ["はいち", "haiti"], flag: "🇭🇹", capital: "ポルトープランス", continent: "Americas", difficulty: "hard", center: [-72.3, 19], geoFeatures: "ヒスパニオラ島西部に位置し黒人主導で独立を達成した歴史を持つ。" },
+            "214": { name: "ドミニカ共和国", aliases: ["どみにかきょうわこく", "dominican republic"], flag: "🇩🇴", capital: "サントドミンゴ", continent: "Americas", difficulty: "hard", center: [-70.2, 18.7], geoFeatures: "ヒスパニオラ島東部を占めリゾート地や野球選手排出で有名。" },
+            "388": { name: "ジャマイカ", aliases: ["じゃまいか", "jamaica"], flag: "🇯🇲", capital: "キングストン", continent: "Americas", difficulty: "hard", center: [-77.3, 18.1], geoFeatures: "レゲエ音楽の発祥地であり陸上短距離界の強豪国。" },
+            "558": { name: "ニカラグア", aliases: ["にからぐあ", "nicaragua"], flag: "🇳🇮", capital: "マナグア", continent: "Americas", difficulty: "hard", center: [-85, 12.8], geoFeatures: "中米最大の面積を誇り巨大なニカラグア湖を有する。" },
+            "188": { name: "コスタリカ", aliases: ["こすたりか", "costa rica"], flag: "🇨🇷", capital: "サンホセ", continent: "Americas", difficulty: "hard", center: [-84, 9.9], geoFeatures: "常備軍を持たない平和国家で豊かな生物多様性とエコツアーで有名。" },
+            "591": { name: "パナマ", aliases: ["ぱなま", "panama"], flag: "🇵🇦", capital: "パナマシティ", continent: "Americas", difficulty: "hard", center: [-80.1, 8.5], geoFeatures: "太平洋と大西洋を結ぶパナマ運河が国土を貫く交通の要衝。" },
+            "084": { name: "ベリーズ", aliases: ["べりーず", "belize"], flag: "🇧🇿", capital: "ベルモパン", continent: "Americas", difficulty: "hard", center: [-88.5, 17.2], geoFeatures: "世界第2位の大サンゴ礁「ブルーホール」を抱えるカリブ海沿岸国。" },
+            "320": { name: "グアテマラ", aliases: ["ぐあてまら", "guatemala"], flag: "🇬🇹", capital: "グアテマラシティ", continent: "Americas", difficulty: "hard", center: [-90.2, 15.7], geoFeatures: "古代マヤ文明の中心地ティカル遺跡がある歴史深い中米の国。" },
+            "222": { name: "エルサルバドル", aliases: ["えるさるばどる", "el salvador"], flag: "🇸🇻", capital: "サンサルバドル", continent: "Americas", difficulty: "hard", center: [-88.9, 13.8], geoFeatures: "中米最小の面積を持つ火山国でサーフィンリゾート地として注目される。" },
+            "340": { name: "ホンジュラス", aliases: ["ほんじゅらす", "honduras"], flag: "🇭🇳", capital: "テグシガルパ", continent: "Americas", difficulty: "hard", center: [-86.5, 15], geoFeatures: "山地が多く世界遺産コパンのマヤ遺跡が位置する。" },
+
+            // --- アフリカ ---
+            "504": { name: "モロッコ", aliases: ["もろっこ", "morocco"], flag: "🇲🇦", capital: "ラバト", continent: "Africa", difficulty: "hard", center: [-7, 31.7], geoFeatures: "北アフリカ西端に位置し迷宮都市フェズや青い街シャウエンが有名。" },
+            "012": { name: "アルジェリア", aliases: ["あるじぇりあ", "algeria"], flag: "🇩🇿", capital: "アルジェ", continent: "Africa", difficulty: "hard", center: [3, 28], geoFeatures: "アフリカ大陸最大の面積を誇り国土の8割以上がサハラ砂漠。" },
+            "788": { name: "チュニジア", aliases: ["ちゅにじあ", "tunisia"], flag: "🇹🇳", capital: "チュニス", continent: "Africa", difficulty: "hard", center: [9.5, 34], geoFeatures: "古代カルタゴ遺跡や地中海沿岸のリゾート地を持つ北アフリカ国。" },
+            "434": { name: "リビア", aliases: ["りびあ", "libya"], flag: "🇱🇾", capital: "トリポリ", continent: "Africa", difficulty: "hard", center: [17, 26], geoFeatures: "地中海に面し石油資源が豊富なサハラ砂漠の国。" },
+            "729": { name: "スーダン", aliases: ["すーだん", "sudan"], flag: "🇸🇩", capital: "ハルツーム", continent: "Africa", difficulty: "hard", center: [30, 15], geoFeatures: "青ナイルと白ナイルが合流するハルツームを首都に持ち多数のメロエピラミッドが存在。" },
+            "728": { name: "南スーダン", aliases: ["みなみすーだん", "south sudan"], flag: "🇸🇸", capital: "ジュバ", continent: "Africa", difficulty: "hard", center: [31, 7], geoFeatures: "2011年に独立した世界で最も新しい国の一つ。世界最大級の湿原スッドを持つ。" },
+            "231": { name: "エチオピア", aliases: ["えちおぴあ", "ethiopia"], flag: "🇪🇹", capital: "アディスアベバ", continent: "Africa", difficulty: "hard", center: [38, 9], geoFeatures: "アフリカ最古の独立国の一つ。コーヒー発祥の地として知られる。" },
+            "706": { name: "ソマリア", aliases: ["そまりあ", "somalia"], flag: "🇸🇴", capital: "モガディシオ", continent: "Africa", difficulty: "hard", center: [46, 5], geoFeatures: "「アフリカのツノ」東端に位置し長い海岸線を持つ。" },
+            "800": { name: "ウガンダ", aliases: ["うがんだ", "uganda"], flag: "🇺🇬", capital: "カンパラ", continent: "Africa", difficulty: "hard", center: [32.5, 1.3], geoFeatures: "「アフリカの真珠」と称されビクトリア湖に面する。" },
+            "834": { name: "タンザニア", aliases: ["たんざにあ", "tanzania"], flag: "🇹🇿", capital: "ドドマ", continent: "Africa", difficulty: "hard", center: [35, -6], geoFeatures: "アフリカ最高峰キリマンジャロ山やセレンゲティ国立公園を擁する。" },
+            "024": { name: "アンゴラ", aliases: ["あんごら", "angola"], flag: "🇦🇴", capital: "ルアンダ", continent: "Africa", difficulty: "hard", center: [17.5, -12.3], geoFeatures: "南西アフリカの大西洋に面し石油とダイヤモンド資源が豊富。" },
+            "180": { name: "コンゴ民主共和国", aliases: ["こんごみんしゅきょうわこく", "drc", "旧ザイール"], flag: "🇨🇩", capital: "キンシャサ", continent: "Africa", difficulty: "hard", center: [23.6, -2.8], geoFeatures: "アフリカ第2位の面積。広大なコンゴ盆地と熱帯雨林が広がる。" },
+            "178": { name: "コンゴ共和国", aliases: ["こんごきょうわこく", "congo"], flag: "🇨🇬", capital: "ブラザヴィル", continent: "Africa", difficulty: "hard", center: [15, -0.7], geoFeatures: "コンゴ川西岸に位置し広大な森林資源を持つ。" },
+            "120": { name: "カメルーン", aliases: ["かめるーん", "cameroon"], flag: "🇨🇲", capital: "ヤウンデ", continent: "Africa", difficulty: "hard", center: [12, 5], geoFeatures: "「アフリカの縮図」と呼ばれ多様な気候帯と文化的背景を持つ。" },
+            "148": { name: "チャド", aliases: ["ちゃど", "chad"], flag: "🇹🇩", capital: "ンジャメナ", continent: "Africa", difficulty: "hard", center: [18, 15], geoFeatures: "アフリカ中央部の内陸国。縮小が心配されるチャド湖を抱える。" },
+            "562": { name: "ニジェール", aliases: ["にじぇーる", "niger"], flag: "🇳🇪", capital: "ニアメ", continent: "Africa", difficulty: "hard", center: [8, 17], geoFeatures: "サハラ砂漠南縁のサヘル地帯に位置するウラン産出国。" },
+            "466": { name: "マリ", aliases: ["まり", "mali"], flag: "🇲🇱", capital: "バマコ", continent: "Africa", difficulty: "hard", center: [-4, 17], geoFeatures: "かつてマリ帝国が栄え古都トンブクトゥの泥のモスクが著名。" },
+            "854": { name: "ブルキナファソ", aliases: ["ぶるきなふぁそ", "burkina faso"], flag: "🇧🇫", capital: "ワガドゥグ", continent: "Africa", difficulty: "hard", center: [-1.5, 12.2], geoFeatures: "「清廉な人々の国」を意味する西アフリカの内陸国。" },
+            "686": { name: "セネガル", aliases: ["せねがる", "senegal"], flag: "🇸🇳", capital: "ダカール", continent: "Africa", difficulty: "hard", center: [-14.4, 14.5], geoFeatures: "アフリカ大陸最西端のヴェルデ岬を擁しダカールラリーで有名。" },
+            "384": { name: "コートジボワール", aliases: ["こーとじぼわーる", "ivory coast"], flag: "🇨🇮", capital: "ヤムスクロ", continent: "Africa", difficulty: "hard", center: [-5.5, 7.5], geoFeatures: "世界最大のカカオ豆生産国。「象牙海岸」の意味を持つ。" },
+            "288": { name: "ガーナ", aliases: ["がーな", "ghana"], flag: "🇬🇭", capital: "アクラ", continent: "Africa", difficulty: "hard", center: [-1, 7.9], geoFeatures: "カカオと金の産地として知られ旧国名はゴールドコースト（黄金海岸）。" },
+            "262": { name: "ジブチ", aliases: ["じぶち", "djibouti"], flag: "🇩🇯", capital: "ジブチ", continent: "Africa", difficulty: "hard", center: [42.5, 11.5], geoFeatures: "紅海の入口を制する要衝。アフリカ一低いアッサル湖が存在。" },
+            "232": { name: "エリトリア", aliases: ["えりとりあ", "eritrea"], flag: "🇪🇷", capital: "アスマラ", continent: "Africa", difficulty: "hard", center: [39, 15], geoFeatures: "紅海沿岸に位置し首都アスマラの近代建築群が世界遺産。" },
+            "426": { name: "レソト", aliases: ["れさと", "lesotho"], flag: "🇱🇸", capital: "マセル", continent: "Africa", difficulty: "hard", center: [28.2, -29.6], geoFeatures: "周囲を南アフリカに囲まれた全土高標高の「天空の王国」。" },
+            "748": { name: "エスワティニ", aliases: ["えすわてぃに", "eswatini"], flag: "🇸🇿", capital: "ムババーネ", continent: "Africa", difficulty: "hard", center: [31.5, -26.5], geoFeatures: "旧国名スワジランド。南部アフリカの内陸立憲君主国。" },
+            "566": { name: "ナイジェリア", aliases: ["ないじぇりあ", "nigeria"], flag: "🇳🇬", capital: "アブジャ", continent: "Africa", difficulty: "hard", center: [8, 10], geoFeatures: "アフリカ最大の人口と経済規模を持つ西アフリカの大国。" },
+            "516": { name: "ナミビア", aliases: ["なみびあ", "namibia"], flag: "🇳🇦", capital: "ウィントフック", continent: "Africa", difficulty: "hard", center: [17, -22], geoFeatures: "世界最古のナミブ砂漠と赤い砂丘群（ソサスフレイ）で有名。" },
+            "072": { name: "ボツワナ", aliases: ["ぼつあな", "botswana"], flag: "🇧🇼", capital: "ハボローネ", continent: "Africa", difficulty: "hard", center: [24, -22], geoFeatures: "世界最大級の内陸デルタ「オカバンゴ・デルタ」を保持。" },
+            "508": { name: "モザンビーク", aliases: ["もざんびーく", "mozambique"], flag: "🇲🇿", capital: "マプト", continent: "Africa", difficulty: "hard", center: [35, -18.6], geoFeatures: "インド洋に面した長い海岸線を持つポルトガル語圏の国。" },
+
+            // --- オセアニア ---
+            "598": { name: "パプアニューギニア", aliases: ["ぱぷあにゅーぎにあ", "papua new guinea"], flag: "🇵🇬", capital: "ポートモレスビー", continent: "Oceania", difficulty: "hard", center: [143.6, -6], geoFeatures: "ニューギニア島東部と周辺の島々からなり多種多様な言語と民族が存在。" },
+            "242": { name: "フィジー", aliases: ["ふぃじー", "fiji"], flag: "🇫🇯", capital: "スバ", continent: "Oceania", difficulty: "hard", center: [178, -18], geoFeatures: "南太平洋の300以上の島々からなるビーチリゾート国家。" },
+            "548": { name: "バヌアツ", aliases: ["ばぬあつ", "vanuatu"], flag: "🇻🇺", capital: "ポートビラ", continent: "Oceania", difficulty: "hard", center: [168, -16], geoFeatures: "活火山ヤスール山や独自の伝統文化で知られる南太平洋の島国。" },
+            "090": { name: "ソロモン諸島", aliases: ["そろもんしょとう", "solomon islands"], flag: "🇸🇧", capital: "ホニアラ", continent: "Oceania", difficulty: "hard", center: [160, -9.6], geoFeatures: "南太平洋メラネシアの900以上の島々からなる自然豊かな国。" }
         };
 
-        function setupKeyboardListeners() {
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    // モーダル（設定・チャット・編集）が開いている場合はそちらの操作を優先
-                    const isModalOpen = !document.getElementById('edit-geo-modal').classList.contains('hidden') ||
-                                        !document.getElementById('ai-chat-modal').classList.contains('hidden') ||
-                                        !document.getElementById('settings-modal').classList.contains('hidden');
-                    if (isModalOpen) return;
-
-                    // 地理的特徴・回答結果が表示されている時にEnterキーで次の問題へ
-                    const geoCard = document.getElementById('geo-features-card');
-                    if (geoCard && !geoCard.classList.contains('hidden')) {
-                        e.preventDefault();
-                        nextQuestion();
-                    }
-                }
-            });
-        }
+        // Initialize D3 Map rendering and Load TopoJSON
+        window.addEventListener('load', () => {
+            initMap();
+            initDatalist();
+        });
 
         function initMap() {
             const container = document.getElementById('map-container');
@@ -520,14 +701,12 @@
             const height = container.clientHeight || 500;
 
             svg = d3.select('#world-map')
-                .attr('viewBox', `0 0 ${width} ${height}`)
                 .attr('width', '100%')
-                .attr('height', '100%');
-
-            g = svg.append('g');
+                .attr('height', '100%')
+                .attr('viewBox', `0 0 ${width} ${height}`);
 
             projection = d3.geoMercator()
-                .scale((width / 6.3))
+                .scale(width / 6.5)
                 .translate([width / 2, height / 1.5]);
 
             path = d3.geoPath().projection(projection);
@@ -540,13 +719,19 @@
 
             svg.call(zoom);
 
-            // Fetch TopoJSON World Data from CDN
-            d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-                .then(data => {
-                    worldGeoData = topojson.feature(data, data.objects.countries);
+            g = svg.append('g');
+
+            // Fetch TopoJSON World Atlas Data
+            fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('ネットワークエラーにより地図データが取得できませんでした');
+                    return response.json();
+                })
+                .then(topology => {
+                    const countries = topojson.feature(topology, topology.objects.countries).features;
 
                     g.selectAll('path')
-                        .data(worldGeoData.features)
+                        .data(countries)
                         .enter()
                         .append('path')
                         .attr('class', 'country')
@@ -554,18 +739,25 @@
                         .attr('d', path)
                         .on('click', (event, d) => onCountryClick(d));
 
-                    // Hide loading indicator
-                    document.getElementById('map-loading').classList.add('hidden');
+                    // Hide loading spinner
+                    const loadingEl = document.getElementById('map-loading');
+                    if (loadingEl) loadingEl.style.display = 'none';
 
-                    // Start Game
+                    // Start first question
                     startNewQuestion();
                 })
                 .catch(err => {
-                    console.error("Map data error:", err);
-                    document.getElementById('map-loading').innerHTML = `
-                        <p class="text-rose-400 font-bold">地図データの読み込みに失敗しました。</p>
-                        <button onclick="location.reload()" class="mt-2 px-3 py-1 bg-indigo-600 rounded text-xs text-white">再読み込み</button>
-                    `;
+                    console.error('Map loading error:', err);
+                    const loadingEl = document.getElementById('map-loading');
+                    if (loadingEl) {
+                        loadingEl.innerHTML = `
+                            <div class="text-rose-400 p-4 text-center space-y-2">
+                                <i class="fa-solid fa-triangle-exclamation text-3xl"></i>
+                                <p class="font-bold">地図データの読み込みに失敗しました。</p>
+                                <p class="text-xs text-slate-400">ネットワーク接続を確認し、ページを再読み込みしてください。</p>
+                            </div>
+                        `;
+                    }
                 });
         }
 
@@ -573,24 +765,44 @@
             return String(id).padStart(3, '0');
         }
 
+        function initDatalist() {
+            const datalist = document.getElementById('country-suggestions');
+            if (!datalist) return;
+            datalist.innerHTML = '';
+            Object.values(COUNTRY_DATA).forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.name;
+                datalist.appendChild(option);
+            });
+        }
+
         function getEligibleCountryIds() {
             return Object.keys(COUNTRY_DATA).filter(id => {
                 const item = COUNTRY_DATA[id];
+                // 地域フィルタ
                 if (settings.region !== 'all' && item.continent !== settings.region) return false;
-                if (settings.difficulty === 'easy' && item.difficulty !== 'easy') return false;
-                if (settings.difficulty === 'medium' && item.difficulty === 'hard') return false;
+                
+                // 難易度フィルタ（厳密分離）
+                if (settings.difficulty === 'easy') {
+                    return item.difficulty === 'easy';
+                } else if (settings.difficulty === 'medium') {
+                    return item.difficulty === 'medium';
+                } else if (settings.difficulty === 'hard') {
+                    return item.difficulty === 'hard';
+                }
                 return true;
             });
         }
 
         function startNewQuestion() {
-            d3.selectAll('.country').classed('target', false);
+            d3.selectAll('.country').classed('target', false).classed('correct-flash', false);
             document.getElementById('hint-container').classList.add('hidden');
             document.getElementById('ai-hint-container').classList.add('hidden');
             document.getElementById('geo-features-card').classList.add('hidden');
-            document.getElementById('country-input').value = '';
-            document.getElementById('country-input').disabled = false;
-            document.getElementById('country-input').focus();
+            
+            const inputField = document.getElementById('country-input');
+            inputField.value = '';
+            inputField.disabled = false;
             hideFeedback();
 
             const candidates = getEligibleCountryIds();
@@ -611,17 +823,34 @@
             usedCountryIds.add(activeCountryId);
             activeCountryObj = COUNTRY_DATA[activeCountryId];
 
-            const targetElement = d3.select(`#country-${formatCountryId(activeCountryId)}`);
-            if (!targetElement.empty()) {
-                targetElement.classed('target', true);
-            }
-
             document.getElementById('question-number').innerText = `第 ${currentQuestionNum} 問`;
             document.getElementById('difficulty-badge').innerText = 
                 activeCountryObj.difficulty === 'easy' ? '初級' : 
                 activeCountryObj.difficulty === 'medium' ? '中級' : '上級';
 
-            centerOnTarget();
+            // Quiz Mode Layout Switch
+            if (settings.quizType === 'input') {
+                document.getElementById('quiz-form').classList.remove('hidden');
+                document.getElementById('click-mode-box').classList.add('hidden');
+                document.getElementById('header-subtitle').innerText = "赤く染まった国名を当てよう！";
+                document.getElementById('answer-mode-indicator').innerHTML = '<i class="fa-solid fa-keyboard mr-1"></i> 国名入力モード';
+                
+                const targetElement = d3.select(`#country-${formatCountryId(activeCountryId)}`);
+                if (!targetElement.empty()) {
+                    targetElement.classed('target', true);
+                }
+                centerOnTarget();
+                setTimeout(() => inputField.focus(), 100);
+
+            } else { // 'click' Mode (位置あてクイズ)
+                document.getElementById('quiz-form').classList.add('hidden');
+                document.getElementById('click-mode-box').classList.remove('hidden');
+                document.getElementById('header-subtitle').innerText = "指定された国の場所をマップ上で探してクリック！";
+                document.getElementById('answer-mode-indicator').innerHTML = '<i class="fa-solid fa-arrow-pointer mr-1"></i> 位置あてモード';
+                document.getElementById('target-country-prompt').innerText = `${activeCountryObj.flag || '🚩'} ${activeCountryObj.name}`;
+                
+                resetZoom();
+            }
         }
 
         function isCorrectAnswer(val, country) {
@@ -632,7 +861,7 @@
 
         function handleAnswerSubmit(e) {
             e.preventDefault();
-            if (exploreMode) return;
+            if (exploreMode || settings.quizType === 'click') return;
 
             const inputField = document.getElementById('country-input');
             const userVal = inputField.value;
@@ -640,46 +869,98 @@
             if (!userVal.trim()) return;
 
             if (isCorrectAnswer(userVal, activeCountryObj)) {
-                score += 100 + (streak * 10);
-                streak++;
-                updateStatsDisplay();
-
-                showFeedback("正解！ Excellent! 「次の問題へ進む」を押して移動します", "correct");
-                triggerConfetti();
-                addHistoryLog(activeCountryObj.name, true);
-                displayGeoFeatures(activeCountryId);
-
-                const targetElement = d3.select(`#country-${formatCountryId(activeCountryId)}`);
-                targetElement.classed('correct-flash', true);
-                inputField.disabled = true;
-
+                handleCorrectAnswer();
             } else {
-                streak = 0;
-                updateStatsDisplay();
-                showFeedback("不正解... もう一度挑戦！", "incorrect");
+                handleIncorrectAnswer();
+            }
+        }
 
-                if (settings.mode === 'survival') {
-                    setTimeout(() => {
-                        alert(`ゲームオーバー！ サバイバル記録: ${currentQuestionNum - 1} 問正解`);
-                        resetGame();
-                    }, 500);
+        function onCountryClick(d) {
+            const clickedCountryId = formatCountryId(d.id);
+            const countryInfo = COUNTRY_DATA[clickedCountryId];
+
+            playSound('click');
+
+            if (exploreMode) {
+                const modal = document.getElementById('explore-modal');
+                modal.classList.remove('hidden');
+                
+                if (countryInfo) {
+                    activeCountryId = clickedCountryId;
+                    activeCountryObj = countryInfo;
+                    document.getElementById('explore-flag').innerText = countryInfo.flag || '🗺️';
+                    document.getElementById('explore-country-name').innerText = countryInfo.name;
+                    document.getElementById('explore-country-capital').innerText = `首都: ${countryInfo.capital} (${countryInfo.continent})`;
+                    document.getElementById('explore-country-features').innerText = countryInfo.geoFeatures ? `特徴: ${countryInfo.geoFeatures}` : '特徴: （未登録）';
+                } else {
+                    document.getElementById('explore-flag').innerText = '🗺️';
+                    document.getElementById('explore-country-name').innerText = "未登録の領域";
+                    document.getElementById('explore-country-capital').innerText = `ID: ${clickedCountryId}`;
+                    document.getElementById('explore-country-features').innerText = '';
                 }
+                return;
+            }
+
+            // Click Mode Answer Checking
+            if (settings.quizType === 'click') {
+                if (clickedCountryId === activeCountryId) {
+                    handleCorrectAnswer();
+                } else {
+                    const clickedEl = d3.select(`#country-${clickedCountryId}`);
+                    clickedEl.classed('wrong-flash', true);
+                    setTimeout(() => clickedEl.classed('wrong-flash', false), 500);
+                    handleIncorrectAnswer();
+                }
+            }
+        }
+
+        function handleCorrectAnswer() {
+            playSound('correct');
+            score += 100 + (streak * 15);
+            streak++;
+            updateStatsDisplay();
+
+            showFeedback("正解！ Excellent! 「Enter」キーまたは「次の問題へ進む」を押してください", "correct");
+            triggerConfetti();
+            addHistoryLog(activeCountryObj.name, activeCountryObj.flag, true);
+            displayGeoFeatures(activeCountryId);
+
+            const targetElement = d3.select(`#country-${formatCountryId(activeCountryId)}`);
+            targetElement.classed('target', false);
+            targetElement.classed('correct-flash', true);
+
+            document.getElementById('country-input').disabled = true;
+        }
+
+        function handleIncorrectAnswer() {
+            playSound('incorrect');
+            streak = 0;
+            updateStatsDisplay();
+            showFeedback("不正解... もう一度挑戦してみてください！", "incorrect");
+
+            if (settings.mode === 'survival') {
+                setTimeout(() => {
+                    alert(`ゲームオーバー！ サバイバル記録: ${currentQuestionNum - 1} 問クリア`);
+                    resetGame();
+                }, 500);
             }
         }
 
         function skipCountry() {
             if (exploreMode) return;
-            addHistoryLog(`${activeCountryObj.name} (スキップ)`, false);
+            addHistoryLog(`${activeCountryObj.name} (スキップ)`, activeCountryObj.flag, false);
             displayGeoFeatures(activeCountryId);
             streak = 0;
             updateStatsDisplay();
-            showFeedback(`正解は「${activeCountryObj.name}」でした`, "info");
+            showFeedback(`正解は「${activeCountryObj.flag || ''} ${activeCountryObj.name}」でした`, "info");
             document.getElementById('country-input').disabled = true;
+
+            const targetElement = d3.select(`#country-${formatCountryId(activeCountryId)}`);
+            targetElement.classed('target', false);
+            targetElement.classed('correct-flash', true);
         }
 
         function nextQuestion() {
-            const targetElement = d3.select(`#country-${formatCountryId(activeCountryId)}`);
-            targetElement.classed('correct-flash', false);
             currentQuestionNum++;
             startNewQuestion();
         }
@@ -687,14 +968,49 @@
         function displayGeoFeatures(countryId) {
             const country = COUNTRY_DATA[countryId];
             const card = document.getElementById('geo-features-card');
+            const flag = document.getElementById('geo-card-flag');
             const title = document.getElementById('geo-card-title');
             const body = document.getElementById('geo-features-body');
 
             if (!country) return;
 
             card.classList.remove('hidden');
-            title.innerText = `${country.name} の地理的特徴`;
+            flag.innerText = country.flag || '🚩';
+            title.innerText = `${country.name} の地理・雑学解説`;
             body.innerText = country.geoFeatures ? country.geoFeatures : "（地理的特徴は未登録です。「編集」ボタンから登録できます）";
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high text-indigo-400';
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                if (typeof Tone !== 'undefined') {
+                    if (Tone.context.state !== 'running') {
+                        Tone.start();
+                    }
+                    const synth = new Tone.Synth().toDestination();
+                    if (type === 'correct') {
+                        synth.triggerAttackRelease("C5", "8n", Tone.now());
+                        synth.triggerAttackRelease("G5", "8n", Tone.now() + 0.12);
+                    } else if (type === 'incorrect') {
+                        synth.triggerAttackRelease("F3", "8n", Tone.now());
+                        synth.triggerAttackRelease("C3", "8n", Tone.now() + 0.12);
+                    } else if (type === 'click') {
+                        synth.triggerAttackRelease("C6", "16n", Tone.now());
+                    }
+                }
+            } catch(e) {
+                console.warn('Audio play error:', e);
+            }
         }
 
         function openEditGeoModal() {
@@ -727,29 +1043,7 @@
         function generateGeoFeaturesWithAi() {
             if (!activeCountryObj) return;
             const textarea = document.getElementById('edit-geo-textarea');
-            textarea.value = `${activeCountryObj.name}は${activeCountryObj.continent}に位置し、首都は${activeCountryObj.capital}。山地や気候の特徴をここに記録できます。`;
-        }
-
-        function onCountryClick(d) {
-            const countryId = formatCountryId(d.id);
-            const countryInfo = COUNTRY_DATA[countryId];
-
-            if (exploreMode) {
-                const modal = document.getElementById('explore-modal');
-                modal.classList.remove('hidden');
-                
-                if (countryInfo) {
-                    activeCountryId = countryId;
-                    activeCountryObj = countryInfo;
-                    document.getElementById('explore-country-name').innerText = countryInfo.name;
-                    document.getElementById('explore-country-capital').innerText = `首都: ${countryInfo.capital} (${countryInfo.continent})`;
-                    document.getElementById('explore-country-features').innerText = countryInfo.geoFeatures ? `特徴: ${countryInfo.geoFeatures}` : '特徴: （未登録）';
-                } else {
-                    document.getElementById('explore-country-name').innerText = "未登録の領域";
-                    document.getElementById('explore-country-capital').innerText = `ID: ${countryId}`;
-                    document.getElementById('explore-country-features').innerText = '';
-                }
-            }
+            textarea.value = `${activeCountryObj.name}（首都: ${activeCountryObj.capital}）は${activeCountryObj.continent}に位置する魅力的な国です。独自の気候や自然景観が広がっています。`;
         }
 
         function toggleExploreMode() {
@@ -758,11 +1052,11 @@
             const exploreModal = document.getElementById('explore-modal');
 
             if (exploreMode) {
-                btnText.innerText = "クイズモードに戻る";
+                btnText.innerText = "クイズモード";
                 exploreModal.classList.remove('hidden');
                 d3.selectAll('.country').classed('target', false);
             } else {
-                btnText.innerText = "図鑑・探索モード";
+                btnText.innerText = "図鑑モード";
                 exploreModal.classList.add('hidden');
                 startNewQuestion();
             }
@@ -771,7 +1065,7 @@
         function showHint() {
             if (!activeCountryObj) return;
             const container = document.getElementById('hint-container');
-            document.getElementById('hint-continent').querySelector('span').innerText = `大陸: ${activeCountryObj.continent}`;
+            document.getElementById('hint-continent').querySelector('span').innerText = `所属大陸: ${activeCountryObj.continent}`;
             document.getElementById('hint-capital').querySelector('span').innerText = `首都: ${activeCountryObj.capital}`;
             document.getElementById('hint-length').querySelector('span').innerText = `文字数: ${activeCountryObj.name.length}文字 (${activeCountryObj.name[0]}...で始まる)`;
             container.classList.remove('hidden');
@@ -782,8 +1076,107 @@
             const container = document.getElementById('ai-hint-container');
             const textElem = document.getElementById('ai-hint-text');
             container.classList.remove('hidden');
-            textElem.innerText = `💡 ヒント: この国は${activeCountryObj.continent}にあり、首都は「${activeCountryObj.capital}」です！ ${activeCountryObj.geoFeatures ? activeCountryObj.geoFeatures : ''}`;
+            textElem.innerText = `💡 ヒント: この国は${activeCountryObj.continent}に位置し、首都は「${activeCountryObj.capital}」です！ ${activeCountryObj.geoFeatures ? activeCountryObj.geoFeatures : ''}`;
         }
+
+        let isTheaterMode = false;
+
+        function toggleFullscreen() {
+            const isFS = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+
+            if (!isFS && !isTheaterMode) {
+                const docEl = document.documentElement;
+                let promise = null;
+
+                try {
+                    if (docEl.requestFullscreen) {
+                        promise = docEl.requestFullscreen();
+                    } else if (docEl.webkitRequestFullscreen) {
+                        promise = docEl.webkitRequestFullscreen();
+                    } else if (docEl.msRequestFullscreen) {
+                        promise = docEl.msRequestFullscreen();
+                    }
+
+                    if (promise && promise.catch) {
+                        promise.catch((err) => {
+                            console.warn('Native Fullscreen API restricted by permissions policy. Switching to Theater Mode fallback:', err);
+                            toggleTheaterMode(true);
+                        });
+                    }
+                } catch (err) {
+                    console.warn('Fullscreen request failed, applying Theater Mode fallback:', err);
+                    toggleTheaterMode(true);
+                }
+            } else if (isFS) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(err => console.warn(err));
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            } else if (isTheaterMode) {
+                toggleTheaterMode(false);
+            }
+        }
+
+        function toggleTheaterMode(enable) {
+            const mapPanel = document.querySelector('.glass-panel-glow');
+            if (!mapPanel) return;
+
+            isTheaterMode = (enable !== undefined) ? enable : !isTheaterMode;
+
+            if (isTheaterMode) {
+                mapPanel.classList.add('theater-fullscreen');
+            } else {
+                mapPanel.classList.remove('theater-fullscreen');
+            }
+            updateFullscreenIcon();
+
+            setTimeout(() => {
+                const container = document.getElementById('map-container');
+                if (container && svg) {
+                    const width = container.clientWidth;
+                    const height = container.clientHeight;
+                    svg.attr('viewBox', `0 0 ${width} ${height}`);
+                }
+            }, 100);
+        }
+
+        function updateFullscreenIcon() {
+            const icon = document.getElementById('fullscreen-icon');
+            const isFS = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement || isTheaterMode;
+            
+            if (icon) {
+                if (isFS) {
+                    icon.className = 'fa-solid fa-compress text-indigo-400';
+                } else {
+                    icon.className = 'fa-solid fa-expand text-indigo-400';
+                }
+            }
+            
+            // Re-render responsive dimensions
+            setTimeout(() => {
+                const container = document.getElementById('map-container');
+                if (container && svg) {
+                    const width = container.clientWidth || 800;
+                    const height = container.clientHeight || 500;
+                    svg.attr('viewBox', `0 0 ${width} ${height}`);
+                }
+            }, 100);
+        }
+
+        document.addEventListener('fullscreenchange', updateFullscreenIcon);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
+        document.addEventListener('mozfullscreenchange', updateFullscreenIcon);
+        document.addEventListener('MSFullscreenChange', updateFullscreenIcon);
+
+        window.addEventListener('resize', () => {
+            const container = document.getElementById('map-container');
+            if (container && svg) {
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                svg.attr('viewBox', `0 0 ${width} ${height}`);
+            }
+        });
 
         function centerOnTarget() {
             if (!activeCountryObj || !activeCountryObj.center) return;
@@ -795,7 +1188,7 @@
             const scale = 3.5;
 
             svg.transition()
-                .duration(750)
+                .duration(700)
                 .call(
                     zoom.transform,
                     d3.zoomIdentity
@@ -811,7 +1204,7 @@
 
         function openAiChatModal() {
             document.getElementById('ai-chat-modal').classList.remove('hidden');
-            document.getElementById('ai-chat-target-country').innerText = activeCountryObj ? activeCountryObj.name : '未選択';
+            document.getElementById('ai-chat-target-country').innerText = activeCountryObj ? `${activeCountryObj.flag || ''} ${activeCountryObj.name}` : '未選択';
         }
         function closeAiChatModal() { document.getElementById('ai-chat-modal').classList.add('hidden'); }
 
@@ -829,7 +1222,7 @@
             const msgContainer = document.getElementById('ai-chat-messages');
             
             const userMsg = document.createElement('div');
-            userMsg.className = "p-2.5 bg-indigo-900/60 rounded-xl text-indigo-100 text-right";
+            userMsg.className = "p-2.5 bg-indigo-900/80 rounded-xl text-indigo-100 text-right";
             userMsg.innerText = text;
             msgContainer.appendChild(userMsg);
 
@@ -838,10 +1231,10 @@
             setTimeout(() => {
                 const aiMsg = document.createElement('div');
                 aiMsg.className = "p-2.5 bg-slate-800 rounded-xl text-slate-200";
-                aiMsg.innerText = `🤖 ${activeCountryObj ? activeCountryObj.name : 'この国'}について: ${text} の回答です。首都は${activeCountryObj ? activeCountryObj.capital : ''}で、多様な魅力があります！`;
+                aiMsg.innerText = `🤖 ${activeCountryObj ? activeCountryObj.name : 'この国'}の「${text}」についてのガイド情報です： 首都は${activeCountryObj ? activeCountryObj.capital : ''}で、${activeCountryObj ? activeCountryObj.geoFeatures : '素晴らしい自然と文化があります'}！`;
                 msgContainer.appendChild(aiMsg);
                 msgContainer.scrollTop = msgContainer.scrollHeight;
-            }, 500);
+            }, 400);
         }
 
         function showFeedback(text, type) {
@@ -866,14 +1259,14 @@
             document.getElementById('streak-display').innerText = streak;
         }
 
-        function addHistoryLog(name, isCorrect) {
+        function addHistoryLog(name, flag, isCorrect) {
             const list = document.getElementById('history-list');
             if (list.querySelector('p')) list.innerHTML = '';
 
             const item = document.createElement('div');
             item.className = `p-2 rounded-lg flex justify-between items-center ${isCorrect ? 'bg-emerald-950/40 border border-emerald-800/40' : 'bg-slate-800 border border-slate-700'}`;
             item.innerHTML = `
-                <span class="font-bold text-slate-200">Q${currentQuestionNum}. ${name}</span>
+                <span class="font-bold text-slate-200">${flag || '🚩'} Q${currentQuestionNum}. ${name}</span>
                 <span class="${isCorrect ? 'text-emerald-400' : 'text-rose-400'} font-bold">
                     ${isCorrect ? '<i class="fa-solid fa-circle-check"></i> 正解' : '<i class="fa-solid fa-circle-xmark"></i> スキップ'}
                 </span>
@@ -887,6 +1280,17 @@
 
         function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        function setQuizType(type) {
+            settings.quizType = type;
+            document.querySelectorAll('.quiztype-btn').forEach(btn => {
+                btn.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-indigo-300');
+                btn.classList.add('border-slate-700', 'bg-slate-800', 'text-slate-400');
+            });
+            const activeBtn = document.getElementById(`quiztype-${type}`);
+            activeBtn.classList.remove('border-slate-700', 'bg-slate-800', 'text-slate-400');
+            activeBtn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-indigo-300');
+        }
 
         function setGameMode(mode) {
             settings.mode = mode;
@@ -940,9 +1344,28 @@
             currentQuestionNum = 1;
             usedCountryIds.clear();
             updateStatsDisplay();
-            document.getElementById('history-list').innerHTML = '<p class="text-slate-500 italic text-center py-4">ゲームを開始するとここに履歴が表示されます</p>';
+            document.getElementById('history-list').innerHTML = '<p class="text-slate-500 italic text-center py-4">正解またはスキップすると、ここに国のデータが表示されます</p>';
             startNewQuestion();
         }
+
+        // Global Key Listener for shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            if (e.key === 'h' || e.key === 'H') {
+                showHint();
+            } else if (e.key === 'f' || e.key === 'F') {
+                toggleFullscreen();
+            } else if (e.key === 'Escape' && isTheaterMode) {
+                toggleTheaterMode(false);
+            } else if (e.key === 'Enter') {
+                const geoCard = document.getElementById('geo-features-card');
+                if (geoCard && !geoCard.classList.contains('hidden')) {
+                    nextQuestion();
+                }
+            }
+        });
     </script>
 </body>
 </html>
